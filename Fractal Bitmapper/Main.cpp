@@ -67,7 +67,7 @@ const int numColors = 9;
 int colorDensity;
 double zr[upperBound];
 double zi[upperBound];
-double colorsUsed;
+int colorsUsed;
 std::string multiple;
 double zoomFactor;
 int numImages;
@@ -329,11 +329,16 @@ int main()
 				*/
 
 
+				//modify the palette so that colors do not immediately switch at the boundary
+				palette[colorsUsed][0] = palette[0][0];
+				palette[colorsUsed][1] = palette[0][1];
+				palette[colorsUsed][2] = palette[0][2];
+
 				//colorDraw is the color we will draw with
 				//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
 
 				//figure out which two colors our point should be interpolated between, based on k
-				double kscaled = fmod(k, colorDensity) / colorDensity * (colorsUsed - 1);
+				double kscaled = fmod(k, colorDensity) / colorDensity * (colorsUsed);
 				color1[0] = palette[(int)floor(kscaled)][0];
 				color1[1] = palette[(int)floor(kscaled)][1];
 				color1[2] = palette[(int)floor(kscaled)][2];
