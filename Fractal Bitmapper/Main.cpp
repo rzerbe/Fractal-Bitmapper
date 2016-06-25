@@ -33,6 +33,7 @@ const int upperBound = 10000;
 const int escapeRadiusSquared = (1 << 16);		//2^16
 int maxIter = 255;
 const int numColors = 9;
+int colorDensity;
 double zr[upperBound];
 double zi[upperBound];
 
@@ -81,13 +82,15 @@ void fractal()
 
 	std::cout << "Enter number of colors to use:\n";
 	std::cin >> colorsUsed;
+	std::cout << "Enter color density:\n";
+	std::cin >> colorDensity;
 
 	for (int i = 0; i < w; i++)
 	{
 		//give percentage progress
 		int m = i % (w / 100);
 		if (m == 0)
-			std::cout << (int)(((double)i / w * 100)) << "% complete.\n";
+			std::cout << "Comutation " << (int)(((double)i / w * 100)) << "% complete.\n";
 
 		double cr = xmin + ((double)i / w) * (xmax - xmin);
 		for (int j = 0; j < h; j++)
@@ -242,14 +245,19 @@ int main()
 	palette[7][1] = 255;
 	palette[7][2] = 255;
 
-	//black
-	palette[8][0] = 0;
+	//red
+	palette[8][0] = 255;
 	palette[8][1] = 0;
 	palette[8][2] = 0;
 
 
 	for (int i = 0; i<w; i++)
 	{
+		//give percentage progress
+		int m = i % (w / 100);
+		if (m == 0)
+			std::cout << "Coloring " << (int)(((double)i / w * 100)) << "% complete.\n";
+			
 		for (int j = 0; j<h; j++)
 		{
 			//x = i;
@@ -299,7 +307,7 @@ int main()
 				//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
 
 				//figure out which two colors our point should be interpolated between, based on k
-				double kscaled = k*(colorsUsed - 1) / maxIter;
+				double kscaled = fmod(k, colorDensity) / colorDensity * (colorsUsed - 1);
 				color1[0] = palette[(int)floor(kscaled)][0];
 				color1[1] = palette[(int)floor(kscaled)][1];
 				color1[2] = palette[(int)floor(kscaled)][2];
