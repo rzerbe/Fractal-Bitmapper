@@ -6,9 +6,40 @@
 #include <stdint.h>
 #include <string>
 
+/*
+ctrl-F "objective" to find potential things to work on, in no particular order.
+
+objective1:
+Redesign our fractal() function to be called each time wedo the computation for a new image.
+Take some of what we have in the main() function and design a
+render() function that converts the escapeMatrix to a colored pixel array.
+Easily generate multiple images with a single run of this program (useful for getting various magnifications).
+
+objective2:
+implement CPU multithreading
+
+objective3:
+implement GPU acceleration
+
+objective4:
+implement arbitrary precision computation with some high precision math library
+
+objective5:
+generate two images.
+one image with coordinate axes to orient our position within the fractal.
+the other image strictly for aesthetic.
+
+objective6:
+display intermediate images with reduced resolution during computation, and gradually improve resolution
+in real time as computation continues (will have to adjust the order in which we compute the pixels).
+
+*/
+
+
+
 //apparently 30000 is too much
-const int w = 12000;
-const int h = 12000;
+const int w = 2000;
+const int h = 2000;
 
 struct color
 {
@@ -33,17 +64,20 @@ const int upperBound = 10000;
 const int escapeRadiusSquared = (1 << 16);		//2^16
 int maxIter = 255;
 const int numColors = 9;
+int colorDensity;
 double zr[upperBound];
 double zi[upperBound];
+double colorsUsed;
+std::string multiple;
+double zoomFactor;
+int numImages;
 
 std::vector<double> escapeMatrix;	//escape matrix now holds doubles to accomodate smooth coloring
 
 
-double colorsUsed;
-
 void fractal()
 {
-	double xmax, xmin, ymax, ymin, xcoord, ycoord, width, height;
+	double xmax, xmin, ymax, ymin, xcoord, ycoord, windowWidth, windowHeight;
 	std::string choice;
 	escapeMatrix.reserve(w*h);
 	std::cout << "Enter maximum number of iterations\n";
@@ -57,15 +91,26 @@ void fractal()
 		std::cin >> xcoord;
 		std::cout << "Enter y coord:\n";
 		std::cin >> ycoord;
-		std::cout << "Enter width:\n";
-		std::cin >> width;
-		std::cout << "Enter height:\n";
-		std::cin >> height;
+		std::cout << "Enter window width:\n";
+		std::cin >> windowWidth;
+		std::cout << "Enter window height:\n";
+		std::cin >> windowHeight;
 
-		xmin = xcoord - width / 2;
-		xmax = xcoord + width / 2;
-		ymin = ycoord - height / 2;
-		ymax = ycoord + height / 2;
+		xmin = xcoord - windowWidth / 2;
+		xmax = xcoord + windowWidth / 2;
+		ymin = ycoord - windowHeight / 2;
+		ymax = ycoord + windowHeight / 2;
+
+		/*
+		The below input variabes are not used yet.
+		It is not trivial to implement because of the way our code is set up.
+		*/
+		std::cout << "Do you wish to generate multiple images? y/n\n";
+		std::cin >> multiple;
+		std::cout << "Enter zoom factor:\n";
+		std::cin >> zoomFactor;
+		std::cout << "Enter number of images to generate:\n";
+		std::cin >> numImages;
 	}
 	if (choice == "window")
 	{
@@ -81,13 +126,15 @@ void fractal()
 
 	std::cout << "Enter number of colors to use:\n";
 	std::cin >> colorsUsed;
+	std::cout << "Enter color density:\n";
+	std::cin >> colorDensity;
 
 	for (int i = 0; i < w; i++)
 	{
 		//give percentage progress
 		int m = i % (w / 100);
 		if (m == 0)
-			std::cout << (int)(((double)i / w * 100)) << "% complete.\n";
+			std::cout << "Computation " << (int)(((double)i / w * 100)) << "% complete.\n";
 
 		double cr = xmin + ((double)i / w) * (xmax - xmin);
 		for (int j = 0; j < h; j++)
@@ -242,22 +289,21 @@ int main()
 	palette[7][1] = 255;
 	palette[7][2] = 255;
 
-	//black
-	palette[8][0] = 0;
+	//red
+	palette[8][0] = 255;
 	palette[8][1] = 0;
 	palette[8][2] = 0;
 
 
 	for (int i = 0; i<w; i++)
 	{
+		//give percentage progress
+		int m = i % (w / 100);
+		if (m == 0)
+			std::cout << "Coloring " << (int)(((double)i / w * 100)) << "% complete.\n";
+			
 		for (int j = 0; j<h; j++)
 		{
-			//x = i;
-			//y = (h - 1) - j;
-
-			//r = (unsigned char)(xorshift128plus() % 255);
-			//g = (unsigned char)(xorshift128plus() % 255);
-			//b = (unsigned char)(xorshift128plus() % 255);
 
 			if (escapeMatrix.at(j*h + i) == maxIter)
 			{
@@ -270,28 +316,16 @@ int main()
 				double tempIter = maxIter;
 				double k = escapeMatrix.at(j*h + i);
 
-				//this code is obsolete
-				/*
-				color[0] = (((int)k % (int)(tempIter/(numColors-2))) / (tempIter/(numColors-2))) *
-				(r[(int)ceil(k / tempIter * (numColors - 2)) + 1] - r[(int)ceil(k / tempIter * (numColors-2))]) +
-				r[(int)ceil(k / tempIter * (numColors - 2))];
-				color[1] = (((int)k % (int)(tempIter / (numColors - 2))) / (tempIter / (numColors - 2))) *
-				(g[(int)ceil(k / tempIter * (numColors - 2)) + 1] - g[(int)ceil(k / tempIter * (numColors - 2))]) +
-				g[(int)ceil(k / tempIter * (numColors - 2))];
-				color[2] = (((int)k % (int)(tempIter / (numColors - 2))) / (tempIter / (numColors - 2))) *
-				(b[(int)ceil(k / tempIter * (numColors - 2)) + 1] - b[(int)ceil(k / tempIter * (numColors - 2))]) +
-				b[(int)ceil(k / tempIter * (numColors - 2))];
-				*/
-
 
 				/*
-				I changed a lot.  There are probably bugs.  What we need to figure out is
-				what the ballpark values of k (escapeMatrix) come out to be.  This code tries to generate
-				a color based on the escapeMatrix value, so the escapeMatrix values should be from 0 to
-				the number of colors in the palette minus 1.  So, if there are 10 colors in the palette,
-				and we have a pixel in the main part of the mandelbrot set (the huge black bulb in the middle),
-				then the k value should be 9, since palette[9] gives the rgb of the color black.  As we get
-				values lower than 9, we will linearly interpolate to the other colors.
+				This code tries to generate a color based on the escapeMatrix value.  This matrix contains
+				continuous values from 0 to maxIter.  Imagine the escapeMatrix values (0 to maxIter) being
+				divided into intervals of size 'colorDensity'.  For instance, the first interval would then
+				be 0 to 'colorDensity', second interval would be 'colorDensity' to 2*'colorDensity'.
+				For each of these intervals, the color to be drawn with is determined by linearly interpolating
+				the palette (using indices only up to 'colorsUsed'-1) based on the escapeMatrix value.
+				Overall, this creates a cyclical coloring scheme.  The colors will repeat the further we zoom
+				into the image.
 				*/
 
 
@@ -299,7 +333,7 @@ int main()
 				//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
 
 				//figure out which two colors our point should be interpolated between, based on k
-				double kscaled = k*(colorsUsed - 1) / maxIter;
+				double kscaled = fmod(k, colorDensity) / colorDensity * (colorsUsed - 1);
 				color1[0] = palette[(int)floor(kscaled)][0];
 				color1[1] = palette[(int)floor(kscaled)][1];
 				color1[2] = palette[(int)floor(kscaled)][2];
