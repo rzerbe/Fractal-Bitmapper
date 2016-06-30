@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string>
 
+#include <thread>
 /*
 ctrl-F "objective" to find potential things to work on, in no particular order.
 
@@ -15,7 +16,7 @@ Take some of what we have in the main() function and design a
 render() function that converts the escapeMatrix to a colored pixel array.
 Easily generate multiple images with a single run of this program (useful for getting various magnifications).
 
-objective2:
+objective2: (complete)
 implement CPU multithreading
 
 objective3:
@@ -35,51 +36,30 @@ in real time as computation continues (will have to adjust the order in which we
 
 */
 
-
-
 //apparently 30000 is too much
 const int w = 2000;
 const int h = 2000;
 
-struct color
-{
-	unsigned char r;
-	unsigned char g;
-	unsigned char b;
-};
-
-/* The state must be seeded so that it is not everywhere zero. */
-uint64_t s[2];
-
-uint64_t xorshift128plus(void) {
-	uint64_t x = s[0];
-	uint64_t const y = s[1];
-	s[0] = y;
-	x ^= x << 23; // a
-	s[1] = x ^ y ^ (x >> 17) ^ (y >> 26); // b, c
-	return s[1] + y;
-}
 
 const int upperBound = 10000;
 const int escapeRadiusSquared = (1 << 16);		//2^16
 int maxIter = 255;
 const int numColors = 9;
 int colorDensity;
-double zr[upperBound];
-double zi[upperBound];
 int colorsUsed;
 std::string multiple;
 double zoomFactor;
 int numImages;
 
-std::vector<double> escapeMatrix;	//escape matrix now holds doubles to accomodate smooth coloring
+double xmin, xmax, ymin, ymax;
 
-
-void fractal()
+//std::vector<double> escapeMatrix;	//escape matrix now holds doubles to accomodate smooth coloring
+double escapeMatrix[w*h];
+void adjustParameters()
 {
-	double xmax, xmin, ymax, ymin, xcoord, ycoord, windowWidth, windowHeight;
 	std::string choice;
-	escapeMatrix.reserve(w*h);
+	//escapeMatrix.reserve(w*h);
+	//escapeMatrix.resize(w*h);
 	std::cout << "Enter maximum number of iterations\n";
 	std::cin >> maxIter;
 	std::cout << "Enter a point to be centered on, or a window? point/window\n";
@@ -87,6 +67,7 @@ void fractal()
 
 	if (choice == "point")
 	{
+		double xcoord, ycoord, windowWidth, windowHeight;
 		std::cout << "Enter x coord:\n";
 		std::cin >> xcoord;
 		std::cout << "Enter y coord:\n";
@@ -128,33 +109,44 @@ void fractal()
 	std::cin >> colorsUsed;
 	std::cout << "Enter color density:\n";
 	std::cin >> colorDensity;
+}
 
-	for (int i = 0; i < w; i++)
+void fractal(int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
+{
+	time_t start, end;
+	time(&start);
+	double zr[upperBound];
+	double zi[upperBound];
+	for (int j = j_init; j < j_fin; j++) // y axis
 	{
 		//give percentage progress
-		int m = i % (w / 100);
+		int m = j % (h / 100);
 		if (m == 0)
-			std::cout << "Computation " << (int)(((double)i / w * 100)) << "% complete.\n";
-
-		double cr = xmin + ((double)i / w) * (xmax - xmin);
-		for (int j = 0; j < h; j++)
+			std::cout << "Thread: " << threadID << " Computation " << (int)(((double)(j-j_init) / (i_fin-i_init) * 100)) << "% complete.\n";
+		double ci = ymax - ((double)j / h) * (ymax - ymin);
+		
+		for (int i = i_init; i < i_fin; i++) // x axis
 		{
 			bool shortcut = false;
-			double ci = ymax - ((double)j / h) * (ymax - ymin);
+			double cr = xmin + ((double)i / w) * (xmax - xmin);
 
 			//check whether point lies in main cardioid
 			double q;
 			q = (cr - 0.25)*(cr - 0.25) + ci*ci;
 			if (q*(q + cr - 0.25) - 0.25*ci*ci < 0)
 			{
-				escapeMatrix.emplace_back(maxIter);
+				//escapeMatrix.emplace_back(maxIter);
+				//escapeMatrix.at(j*h + i) = maxIter;
+				escapeMatrix[j*h + i] = maxIter;
 				shortcut = true;
 			}
 
 			//check whether point lies in period-2 bulb
 			if ((cr + 1)*(cr + 1) + ci*ci - 0.0625 < 0)
 			{
-				escapeMatrix.emplace_back(maxIter);
+				//escapeMatrix.emplace_back(maxIter);
+				//escapeMatrix.at(j*h + i) = maxIter;
+				escapeMatrix[j*h + i] = maxIter;
 				shortcut = true;
 			}
 
@@ -180,7 +172,9 @@ void fractal()
 				//Non-convergence (k was stored as -2^31 - 1 if not handled)
 				if (k == maxIter + 1)
 				{
-					escapeMatrix.emplace_back(maxIter);
+					//escapeMatrix.emplace_back(maxIter);
+					//escapeMatrix.at(j*h + i) = maxIter;
+					escapeMatrix[j*h + i] = maxIter;
 				}
 				else // Converges before maxIter
 				{
@@ -191,22 +185,23 @@ void fractal()
 					dub = k + 1 - potential;			//this result is a double
 					if (dub > maxIter || dub < -1000)
 						dub = maxIter;
-					escapeMatrix.emplace_back(dub);
+					//escapeMatrix.emplace_back(dub);
+					//escapeMatrix.at(j*h + i) = dub;
+					escapeMatrix[j*h + i] = dub;
 				}
 			}
 		}
 	}
+	time(&end);
+	std::cout << std::endl << std::endl << "Thread " << threadID << " finished in " << difftime(end, start) << " seconds" << std::endl << std::endl;
 }
 
 
 int main()
 {
-	s[0] = std::time(NULL);
-	s[1] = 25;
-
-	FILE *f;
-	unsigned char *img = NULL;
-	int filesize = 54 + 3 * w*h;  //w is your image width, h is image height, both int
+	//Bitmap Header
+	FILE *bitmap;
+	unsigned int filesize = 54 + 3 * w*h;  //w is your image width, h is image height, both int
 								  /*if (img)
 								  free(img);
 								  img = (unsigned char *)malloc(3 * w*h);
@@ -230,15 +225,54 @@ int main()
 	bmpinfoheader[10] = (unsigned char)(h >> 16);
 	bmpinfoheader[11] = (unsigned char)(h >> 24);
 
-	f = fopen("img1.bmp", "wb");
-	fwrite(bmpfileheader, 1, 14, f);
-	fwrite(bmpinfoheader, 1, 40, f);
+	bitmap = fopen("img1.bmp", "wb");
+	fwrite(bmpfileheader, 1, 14, bitmap);
+	fwrite(bmpinfoheader, 1, 40, bitmap);
 
+	//User Input
+	adjustParameters();
 
-	fractal(); // Generate mandelbutt set
+	//CPU Multithreading
+	time_t start, end;
+	const int threadMax = 4;
 
-	int x = 0;
-	int y = 0;
+	std::thread fractalT[threadMax];
+	int thread = 0;
+	time(&start);
+
+	for (int y = 0; y < threadMax / 2; ++y) // Starting y subdivison
+	{
+		for (int x = 0; x < (threadMax / 2); ++x) // Starting x subdivison
+		{
+			if (thread == threadMax - 1) // Allow main thread to perform computation
+			{
+				std::cout << "Thread Main " << thread << " initialized with parameters"
+					<< " xinit " << (w*x) / (threadMax / 2)
+					<< " yinit " << (h*y) / (threadMax / 2)
+					<< " xfin " << (w*(x + 1)) / (threadMax / 2)
+					<< " yfin " << (h*(y + 1)) / (threadMax / 2) << std::endl;
+				fractal(w / (threadMax / 2), h / (threadMax / 2), w, h, threadMax - 1, threadMax);
+			}
+			else // Create new thread
+			{
+				fractalT[thread] = std::thread(fractal, (w*x) / (threadMax / 2), (h*y) / (threadMax / 2), (w*(x + 1)) / (threadMax / 2), (h*(y + 1)) / (threadMax / 2), thread, threadMax);
+				std::cout << "Thread " << thread << " initialized with parameters"
+					<< " xinit " << (w*x) / (threadMax / 2)
+					<< " yinit " << (h*y) / (threadMax / 2)
+					<< " xfin " << (w*(x + 1)) / (threadMax / 2)
+					<< " yfin " << (h*(y + 1)) / (threadMax / 2) << std::endl;
+				thread++;
+			}
+		}
+	}
+
+	for (int i = 0; i < threadMax - 1; ++i)
+	{
+		fractalT[i].join();
+	}
+	time(&end);
+	std::cout << "Fractal Generation finished in " << difftime(end, start) << " seconds" << std::endl;
+
 
 	//colorDraw is the color we will draw with
 	//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
@@ -295,17 +329,17 @@ int main()
 	palette[8][2] = 0;
 
 
-	for (int i = 0; i<w; i++)
+	for (int j = h; j > 0; j--) // y axis
 	{
 		//give percentage progress
-		int m = i % (w / 100);
+		int m = j % (h / 100);
 		if (m == 0)
-			std::cout << "Coloring " << (int)(((double)i / w * 100)) << "% complete.\n";
+			std::cout << "Coloring " << (int)(((double)(h-j) / h * 100)) << "% complete.\n";
 			
-		for (int j = 0; j<h; j++)
+		for (int i = 0; i<w; i++) // x axis
 		{
 
-			if (escapeMatrix.at(j*h + i) == maxIter)
+			if (escapeMatrix[j*h + i] == maxIter)
 			{
 				colorDraw[0] = 0;
 				colorDraw[1] = 0;
@@ -314,7 +348,7 @@ int main()
 			else
 			{
 				double tempIter = maxIter;
-				double k = escapeMatrix.at(j*h + i);
+				double k = escapeMatrix[j*h + i];
 
 
 				/*
@@ -358,32 +392,15 @@ int main()
 				b[0] = 255 - k;*/
 			}
 
-			fwrite(&colorDraw[2], 1, 1, f);
-			fwrite(&colorDraw[1], 1, 1, f);
-			fwrite(&colorDraw[0], 1, 1, f);
+			fwrite(&colorDraw[2], 1, 1, bitmap);
+			fwrite(&colorDraw[1], 1, 1, bitmap);
+			fwrite(&colorDraw[0], 1, 1, bitmap);
 
 		}
-
-		fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, f);
-
-		/*
-		fwrite(b, 1, 1, f);
-		fwrite(g, 1, 1, f);
-		fwrite(r, 1, 1, f);
-		*/
-		//I replaced the above code with this, but there is some sort of error
-		//Fix it senpai >.<
-
-		/*img[(x + y*w) * 3 + 2] = (unsigned char)(r[0]);
-		img[(x + y*w) * 3 + 1] = (unsigned char)(g[0]);
-		img[(x + y*w) * 3 + 0] = (unsigned char)(b[0]);*/
+		fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, bitmap);
 	}
-	/*for (int i = 0; i<h; i++)
-	{
-	fwrite(img + (w*(h - i - 1) * 3), 3, w, f);
-	fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, f);
-	}*/
-	fclose(f);
+
+	fclose(bitmap);
 
 	system("pause");
 	return 0;
