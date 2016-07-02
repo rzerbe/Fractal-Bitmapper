@@ -1,6 +1,14 @@
-﻿  Main.cpp
-c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(382): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(383): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(384): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\x64\Debug\Fractal Bitmapper.exe
-  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\x64\Debug\Fractal Bitmapper.pdb (Partial PDB)
+﻿Main.obj : error LNK2019: unresolved external symbol SDL_GetError referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_MapRGB referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_FillRect referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_CreateWindow referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_GetWindowSurface referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_UpdateWindowSurface referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_DestroyWindow referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_Delay referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_Init referenced in function SDL_main
+Main.obj : error LNK2019: unresolved external symbol SDL_Quit referenced in function SDL_main
+MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)
+C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\Fractal Bitmapper\Libraries\SDL2-2.0.4\lib\x86\SDL2.lib : warning LNK4272: library machine type 'X86' conflicts with target machine type 'x64'
+C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\Fractal Bitmapper\Libraries\SDL2-2.0.4\lib\x86\SDL2main.lib : warning LNK4272: library machine type 'X86' conflicts with target machine type 'x64'
+C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\x64\Debug\Fractal Bitmapper.exe : fatal error LNK1120: 11 unresolved externals

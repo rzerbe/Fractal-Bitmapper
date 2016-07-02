@@ -1,6 +1,8 @@
 ﻿  Main.cpp
-c:\users\ryand\documents\github\fractal bitmapper\fractal bitmapper\main.cpp(311): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-c:\users\ryand\documents\github\fractal bitmapper\fractal bitmapper\main.cpp(312): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-c:\users\ryand\documents\github\fractal bitmapper\fractal bitmapper\main.cpp(313): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
-  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal Bitmapper\Debug\Fractal Bitmapper.exe
-  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal Bitmapper\Debug\Fractal Bitmapper.pdb (Partial PDB)
+c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(77): warning C4101: 'windowHeight': unreferenced local variable
+c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(77): warning C4101: 'windowWidth': unreferenced local variable
+c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(325): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(326): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractal-bitmapper\fractal bitmapper\main.cpp(327): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\Debug\Fractal Bitmapper.exe
+  Fractal Bitmapper.vcxproj -> C:\Users\ryand\Documents\GitHub\Fractal-Bitmapper\Debug\Fractal Bitmapper.pdb (Partial PDB)
