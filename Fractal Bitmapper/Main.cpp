@@ -51,11 +51,11 @@ const int numColors = 8;
 int colorDensity;
 int colorsUsed;
 std::string multiple;
-double zoomFactor;
+double zoomFactor = 1;
 int numImages;
 
 double xmin, xmax, ymin, ymax;
-
+double xcoord, ycoord, windowWidth, windowHeight;
 //std::vector<double> escapeMatrix;	//escape matrix now holds doubles to accomodate smooth coloring
 double escapeMatrix[w*h];
 void adjustParameters()
@@ -74,7 +74,6 @@ void adjustParameters()
 
 	if (choice == "standardpt")
 	{
-		double xcoord, ycoord, windowWidth, windowHeight;
 		std::cout << "Enter x coord:\n";
 		std::cin >> xcoord;
 		std::cout << "Enter y coord:\n";
@@ -90,7 +89,6 @@ void adjustParameters()
 
 	if (choice == "point")
 	{
-		double xcoord, ycoord, windowWidth, windowHeight;
 		std::cout << "Enter x coord:\n";
 		std::cin >> xcoord;
 		std::cout << "Enter y coord:\n";
@@ -218,10 +216,10 @@ void writeBitmap(FILE* bitmap, int i_init, int j_init, int i_fin, int j_fin)
 	//colorDraw is the color we will draw with
 	//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
 	//palette stores the rgb of all of our hardcoded colors
-	unsigned char colorDraw[3*w];
 	unsigned char color1[3];
 	unsigned char color2[3];
-	unsigned char palette[numColors][3];
+	unsigned char palette[numColors+1][3];
+	unsigned char colorDraw[3 * w];
 	unsigned char bmppad[3] = { 0,0,0 };
 
 	//orange
@@ -342,65 +340,16 @@ void writeBitmap(FILE* bitmap, int i_init, int j_init, int i_fin, int j_fin)
 		fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, bitmap);
 	}
 }
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
-int main(int argc, char** argv)
+
+void fractalRender(SDL_Window *window, SDL_Surface *surface_window)
 {
-	// Initialise GLFW
-	/*if (!glfwInit())
-	{
-		fprintf(stderr, "Failed to initialize GLFW\n");
-		return -1;
-	}
-
-	glfwWindowHint(GLFW_SAMPLES, 4); // 4x antialiasing
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.3
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL 
-
-																   // Open a window and create its OpenGL context
-	GLFWwindow* window; // (In the accompanying source code, this variable is global)
-	window = glfwCreateWindow(1024, 768, "Tutorial 01", NULL, NULL);
-	if (window == NULL) {
-		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n");
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(window); // Initialize GLEW
-	glewExperimental = true; // Needed in core profile
-	if (glewInit() != GLEW_OK) {
-		fprintf(stderr, "Failed to initialize GLEW\n");
-		return -1;
-	}
-
-
-	// Ensure we can capture the escape key being pressed below
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-
-	glEnable(GL_PROGRAM_POINT_SIZE);
-	glPointSize(1.0);
-
-	do {
-		// Draw nothing, see you in tutorial 2 !
-
-		// Swap buffers
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-
-	} // Check if the ESC key was pressed or the window was closed
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
-		glfwWindowShouldClose(window) == 0);
-		*/
-
-
 	//Bitmap Header
 	FILE *bitmap;
 	unsigned int filesize = 54 + 3 * w*h;  //w is your image width, h is image height, both int
-								  /*if (img)
-								  free(img);
-								  img = (unsigned char *)malloc(3 * w*h);
-								  memset(img, 0, sizeof(img));*/
+										   /*if (img)
+										   free(img);
+										   img = (unsigned char *)malloc(3 * w*h);
+										   memset(img, 0, sizeof(img));*/
 
 	unsigned char bmpfileheader[14] = { 'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0 };
 	unsigned char bmpinfoheader[40] = { 40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0 };
@@ -422,9 +371,6 @@ int main(int argc, char** argv)
 	bitmap = fopen("img1.bmp", "wb");
 	fwrite(bmpfileheader, 1, 14, bitmap);
 	fwrite(bmpinfoheader, 1, 40, bitmap);
-
-	//User Input
-	adjustParameters();
 
 	//CPU Multithreading
 	time_t start, end;
@@ -493,9 +439,34 @@ int main(int argc, char** argv)
 	writeBitmap(bitmap, 0, 0, w, h);
 	fclose(bitmap);
 
+	SDL_Surface *bmpOut = NULL;
+	SDL_Surface *bmpIn = SDL_LoadBMP("img1.bmp");
+	if (bmpIn == NULL) {
+		std::cout << "SDL_LoadBMP Error: " << SDL_GetError() << std::endl;
+		return;
+	}
+	else
+	{
+		bmpOut = SDL_ConvertSurface(bmpIn, surface_window->format, NULL);
+		if (bmpIn == NULL)
+		{
+			std::cout << "SDL_ConvertSurface Error: " << SDL_GetError() << std::endl;
+			return;
+		}
+		SDL_FreeSurface(bmpIn);
+	}
 
+	SDL_BlitSurface(bmpOut, NULL, surface_window, NULL);
+	SDL_UpdateWindowSurface(window);
+	SDL_FreeSurface(bmpOut);
+}
 
+int main(int argc, char** argv)
+{
+	//User Input
+	adjustParameters();
 
+	//Initalize SDL
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 		std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
 		return 1;
@@ -507,55 +478,88 @@ int main(int argc, char** argv)
 		std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
 		return 2;
 	}
-	/*
-	SDL_Renderer *ren = SDL_CreateRenderer(window, -1,
-	SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (ren == NULL){
-	std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
-	return 1;
-	}
-	*/
-	SDL_Surface *surface_bmp = SDL_LoadBMP("img1.bmp");
-	if (surface_bmp == NULL) {
-		std::cout << "SDL_LoadBMP Error: " << SDL_GetError() << std::endl;
-		return 3;
-	}
-	/*
-	SDL_Texture *tex = SDL_CreateTextureFromSurface(ren, surface_bmp);
-	SDL_FreeSurface(surface_bmp);
-	if (tex == NULL){
-	std::cout << "SDL_CreateTextureFromSurface Error: "
-	<< SDL_GetError() << std::endl;
-	return 1;
-	}
-	*/
 
 	SDL_Surface *surface_window = SDL_GetWindowSurface(window);
 
-	/*
-	* Copies the bmp surface to the window surface
-	*/
-	SDL_BlitSurface(surface_bmp,
-		NULL,
-		surface_window,
-		NULL);
+	//Generate from parameters
+	fractalRender(window, surface_window);
 
-	/*
-	* Now updating the window
-	*/
-	SDL_UpdateWindowSurface(window);
+	bool exit = false;
+	SDL_Event event;
+	int mouseX;
+	int mouseY;
+	double centerX, centerY;
+	double windowX, windowY;
+	while (!exit)
+	{
+		while (SDL_WaitEvent(&event) != 0 && !exit) // SDL_WaitEvent can be used in place of polling, but will be stuck in this loop
+		{
+			switch (event.type)
+			{
+			case SDL_QUIT:
+				exit = true;
+				break;
+			case SDL_KEYDOWN:
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_ESCAPE:
+					std::cout << "Escape" << std::endl;
+					exit = true;
+					break;
+				default:
+					break;
+				}
+			case SDL_MOUSEMOTION:
+				SDL_GetMouseState(&mouseX, &mouseY);
+				centerX = (xmax + xmin) / 2;
+				centerY = (ymax + ymin) / 2;
+				windowX = (xmax - xmin) / 2;
+				windowY = (ymax - ymin) / 2;
+				//std::cout << "MousePos at " << mouseX << " " << mouseY << std::endl;
+				std::cout << "Point is " << centerX + windowX*((double)(mouseX - w / 2) * 2 / w) << " " << centerY + windowY*(-1)*((double)(mouseY - h / 2) * 2 / h) << std::endl;
+				break;
+			case SDL_MOUSEBUTTONUP:
+				centerX = (xmax + xmin) / 2;
+				centerY = (ymax + ymin) / 2;
+				windowX = (xmax - xmin) / 2;
+				windowY = (ymax - ymin) / 2;
+				std::cout << "MouseUp on " << mouseX << " " << mouseY << std::endl;
+				//cr = xmin + ((double)i / w) * (xmax - xmin);
+				xmin = xmin + (windowX*((double)(mouseX - w / 2) * 2 / w));
+				xmax = xmax + (windowX*((double)(mouseX - w / 2) * 2 / w));
+				ymin = ymin + (windowY*(-1)*((double)(mouseY - h / 2) * 2 / h));
+				ymax = ymax + (windowY*(-1)*((double)(mouseY - h / 2) * 2 / h));
+				fractalRender(window, surface_window);
+				std::cout << "Window is x:[" << xmin << ", " << xmax << "] y:[" << ymin << ", " << ymax << "] " << "r: " << zoomFactor << std::endl;
+				break;
+			case SDL_MOUSEWHEEL:
+				std::cout << "MouseWheel Dir " << event.wheel.y << std::endl;
+				centerX = (xmax + xmin) / 2;
+				centerY = (ymax + ymin) / 2;
+				if (event.wheel.y == -1)
+				{
+					zoomFactor = zoomFactor / 2;
+					xmin = (centerX - ((double)w / h)*(zoomFactor));
+					xmax = (centerX + ((double)w / h)*(zoomFactor));
+					ymin = (centerY - (zoomFactor));
+					ymax = (centerY + (zoomFactor));
+				}
+				else if (event.wheel.y == 1)
+				{
+					zoomFactor = zoomFactor * 2;
+					xmin = (centerX - ((double)w / h)*(zoomFactor));
+					xmax = (centerX + ((double)w / h)*(zoomFactor));
+					ymin = (centerY - (zoomFactor));
+					ymax = (centerY + (zoomFactor));
+				}
+				fractalRender(window, surface_window);
+				std::cout << "Window is x:[" << xmin << ", " << xmax << "] y:[" << ymin << ", " << ymax << "]" << " r: " << zoomFactor << std::endl;
+				break;
+			}
+			//SDL_Delay(10); // Use for PollEvent
+		}
+	}
 
-	/*
-	* This function used to update a window with OpenGL rendering.
-	* This is used with double-buffered OpenGL contexts, which are the default.
-	*/
-	/*    SDL_GL_SwapWindow(window); */
-
-
-	/*    SDL_DestroyTexture(tex);*/
-	/*    SDL_DestroyRenderer(ren);*/
-
-	system("pause");
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 	return 0;
