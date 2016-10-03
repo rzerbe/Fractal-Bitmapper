@@ -20,6 +20,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Visual Studio
+*.sdf
+$GIT_DIR/FractalGL/Intermediate
+
 # =========================
 # Operating System Files
 # =========================
