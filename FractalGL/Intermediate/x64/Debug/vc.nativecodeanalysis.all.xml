@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?><DEFECTS><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>253</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6328</DEFECTCODE>
+    <DESCRIPTION>Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. </DESCRIPTION>
+    <FUNCTION>avx_fractal</FUNCTION>
+    <DECORATED>?avx_fractal@@YAXHHHHHH@Z</DECORATED>
+    <FUNCLINE>154</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>345</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6328</DEFECTCODE>
+    <DESCRIPTION>Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. </DESCRIPTION>
+    <FUNCTION>avx_fractal_64</FUNCTION>
+    <DECORATED>?avx_fractal_64@@YAXHHHHHH@Z</DECORATED>
+    <FUNCLINE>258</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>466</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6328</DEFECTCODE>
+    <DESCRIPTION>Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. </DESCRIPTION>
+    <FUNCTION>fractal</FUNCTION>
+    <DECORATED>?fractal@@YAXHHHHHH@Z</DECORATED>
+    <FUNCLINE>350</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>596</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6328</DEFECTCODE>
+    <DESCRIPTION>Size mismatch: '__int64' passed as _Param_(2) when 'int' is required in call to 'printf'. </DESCRIPTION>
+    <FUNCTION>fractalRender</FUNCTION>
+    <DECORATED>?fractalRender@@YAXH@Z</DECORATED>
+    <FUNCLINE>471</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>685</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6067</DEFECTCODE>
+    <DESCRIPTION>_Param_(2) in call to 'printf' must be the address of a string. Actual type: 'int'.</DESCRIPTION>
+    <FUNCTION>printError</FUNCTION>
+    <DECORATED>?printError@@YAXHPEBD@Z</DECORATED>
+    <FUNCLINE>683</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>685</LINE>
+      <COLUMN>7</COLUMN>
+    </SFA>
+    <DEFECTCODE>6271</DEFECTCODE>
+    <DESCRIPTION>Extra argument passed to 'printf':  _Param_(3) is not used by the format string.</DESCRIPTION>
+    <FUNCTION>printError</FUNCTION>
+    <DECORATED>?printError@@YAXHPEBD@Z</DECORATED>
+    <FUNCLINE>683</FUNCLINE>
+    <PATH />
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>688</LINE>
+      <COLUMN>13</COLUMN>
+    </SFA>
+    <DEFECTCODE>6244</DEFECTCODE>
+    <DESCRIPTION>Local declaration of 'window' hides previous declaration at line '35' of 'c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp'.</DESCRIPTION>
+    <FUNCTION>keyboard</FUNCTION>
+    <DECORATED>?keyboard@@YAXPEAUGLFWwindow@@HHHH@Z</DECORATED>
+    <FUNCLINE>688</FUNCLINE>
+    <PATH>
+      <SFA>
+        <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+        <FILENAME>main.cpp</FILENAME>
+        <LINE>35</LINE>
+        <COLUMN>18</COLUMN>
+      </SFA>
+    </PATH>
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>795</LINE>
+      <COLUMN>15</COLUMN>
+    </SFA>
+    <DEFECTCODE>6244</DEFECTCODE>
+    <DESCRIPTION>Local declaration of 'window' hides previous declaration at line '35' of 'c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp'.</DESCRIPTION>
+    <FUNCTION>mouseClick</FUNCTION>
+    <DECORATED>?mouseClick@@YAXPEAUGLFWwindow@@HHH@Z</DECORATED>
+    <FUNCLINE>795</FUNCLINE>
+    <PATH>
+      <SFA>
+        <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+        <FILENAME>main.cpp</FILENAME>
+        <LINE>35</LINE>
+        <COLUMN>18</COLUMN>
+      </SFA>
+    </PATH>
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>825</LINE>
+      <COLUMN>16</COLUMN>
+    </SFA>
+    <DEFECTCODE>6244</DEFECTCODE>
+    <DESCRIPTION>Local declaration of 'window' hides previous declaration at line '35' of 'c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp'.</DESCRIPTION>
+    <FUNCTION>mouseMotion</FUNCTION>
+    <DECORATED>?mouseMotion@@YAXPEAUGLFWwindow@@NN@Z</DECORATED>
+    <FUNCLINE>825</FUNCLINE>
+    <PATH>
+      <SFA>
+        <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+        <FILENAME>main.cpp</FILENAME>
+        <LINE>35</LINE>
+        <COLUMN>18</COLUMN>
+      </SFA>
+    </PATH>
+  </DEFECT><DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+      <FILENAME>main.cpp</FILENAME>
+      <LINE>974</LINE>
+      <COLUMN>11</COLUMN>
+    </SFA>
+    <DEFECTCODE>6244</DEFECTCODE>
+    <DESCRIPTION>Local declaration of 'window' hides previous declaration at line '35' of 'c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp'.</DESCRIPTION>
+    <FUNCTION>resize</FUNCTION>
+    <DECORATED>?resize@@YAXPEAUGLFWwindow@@HH@Z</DECORATED>
+    <FUNCLINE>974</FUNCLINE>
+    <PATH>
+      <SFA>
+        <FILEPATH>c:\users\ryand\documents\github\fractalgl\fractalgl\</FILEPATH>
+        <FILENAME>main.cpp</FILENAME>
+        <LINE>35</LINE>
+        <COLUMN>18</COLUMN>
+      </SFA>
+    </PATH>
+  </DEFECT></DEFECTS>

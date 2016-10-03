@@ -1,0 +1,58 @@
+﻿  Main.cpp
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(138): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(139): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(140): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(146): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(147): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(148): warning C4244: '=': conversion from 'double' to 'unsigned char', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(158): warning C4838: conversion from 'double' to 'float' requires a narrowing conversion
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(158): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(158): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(158): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(224): warning C4018: '<': signed/unsigned mismatch
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(253): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 2 has type '__int64'
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(253): note: consider using '%lld' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(253): note: consider using '%Id' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(253): note: consider using '%I64d' in the format string
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(263): warning C4838: conversion from 'int' to 'double' requires a narrowing conversion
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(324): warning C4018: '<': signed/unsigned mismatch
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(345): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 2 has type '__int64'
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(345): note: consider using '%lld' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(345): note: consider using '%Id' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(345): note: consider using '%I64d' in the format string
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(466): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 2 has type '__int64'
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(466): note: consider using '%lld' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(466): note: consider using '%Id' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(466): note: consider using '%I64d' in the format string
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(364): warning C4101: 'logzMag': unreferenced local variable
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(362): warning C4101: 'dub': unreferenced local variable
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(361): warning C4101: 'm': unreferenced local variable
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(364): warning C4101: 'q': unreferenced local variable
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(364): warning C4101: 'potential': unreferenced local variable
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(596): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type '__int64'
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(596): note: consider using '%lld' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(596): note: consider using '%Id' in the format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(596): note: consider using '%I64d' in the format string
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(649): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(656): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(667): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(674): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): warning C4477: 'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 1 has type 'int'
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): warning C4313: 'printf': '%s' in format string conflicts with argument 1 of type 'int'
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): warning C4474: 'printf' : too many arguments passed for format string
+  c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): note: placeholders and their parameters expect 1 variadic arguments, but 2 were provided
+  Graph.cpp
+  Fractal.cpp
+  Running Code Analysis for C/C++...
+  Generating Code...
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(159): warning C4752: found Intel(R) Advanced Vector Extensions; consider using /arch:AVX
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(264): warning C4752: found Intel(R) Advanced Vector Extensions; consider using /arch:AVX
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
+  FractalGL.vcxproj -> C:\Users\ryand\Documents\GitHub\FractalGL\FractalGL\../bin/Debug/FractalGL.exe
+  FractalGL.vcxproj -> ../bin/Debug/FractalGL.pdb (Partial PDB)
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(253): warning C6328: Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. 
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(345): warning C6328: Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. 
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(466): warning C6328: Size mismatch: '__int64' passed as _Param_(3) when 'int' is required in call to 'printf'. 
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(596): warning C6328: Size mismatch: '__int64' passed as _Param_(2) when 'int' is required in call to 'printf'. 
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): warning C6067: _Param_(2) in call to 'printf' must be the address of a string. Actual type: 'int'.
+c:\users\ryand\documents\github\fractalgl\fractalgl\main.cpp(685): warning C6271: Extra argument passed to 'printf':  _Param_(3) is not used by the format string.
