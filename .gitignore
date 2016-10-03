@@ -22,7 +22,13 @@ $RECYCLE.BIN/
 
 # Visual Studio
 *.sdf
-$GIT_DIR/FractalGL/Intermediate
+*.iobj
+*.obj
+*.ipdb
+*.pdb
+*.ilk
+
+FractalGL/Intermediate
 
 # =========================
 # Operating System Files
