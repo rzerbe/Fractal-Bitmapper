@@ -21,15 +21,27 @@
     <ClInclude Include="Configuration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Command.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F_Mandelbrot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F_Buddhabrot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Fractal.cpp">
+    <ClCompile Include="Command.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Graph.cpp">
+    <ClCompile Include="F_Mandelbrot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F_Buddhabrot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -40,5 +52,6 @@
     <None Include="palette.dat">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

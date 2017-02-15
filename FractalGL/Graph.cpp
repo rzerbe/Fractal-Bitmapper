@@ -1,1 +1,0 @@
-// Graphing calculator mode

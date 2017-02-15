@@ -1,23 +1,13 @@
 #pragma once
-struct Calcuation_Data {
+struct Calculation_Data {
 	unsigned char *screenBufferCPU;
 	double *escapeBufferCPU;
+	double *escapeBufferSuperSampling;
+	double *magnitude;
 	bool *updatePixel;
 
 	bool screenStill;
 	bool screenOptimization;
+	bool periodOptimization;
 	int prevMaxIter;
-};
-
-// Exploit locality by referring to fixed memory location
-struct Calculation_Thread {
-	// Coordinate
-	double ci[8];
-	double cr[8];
-
-	// Iteration Calculations
-	double cici[8];
-	double crcr[8];
-	double z[8];
-
 };

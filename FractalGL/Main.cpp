@@ -1,15 +1,14 @@
 // Includes
+#include <cstdio>
+#include <fstream>
+#include <iomanip>  
+#include <iostream>
+#include <ostream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <cstdio>
-#include <iostream>
 #include <string>
-#include <fstream>
-#include <ostream>
-#include <iomanip>  
-#include <sstream>
-#include <queue>
+#include <vector>
 
 // CPU
 #include <chrono>
@@ -24,23 +23,30 @@
 // Program Structure
 #include "Configuration.h"
 #include "Calculation.h"
+#include "Command.h"
+#include "F_Mandelbrot.h"
+#include "F_Buddhabrot.h"
 
 ////////////////////////////////////////
 // Program Data
 Configuration config;
-Calcuation_Data calculation;
-__declspec(align(64)) Calculation_Thread calculationThread[32];
+Calculation_Data calculation;
+F_Mandelbrot *f_mandelbrot;
+std::vector<Command*> commandQueue;
 
 // Graphics
 GLuint gl_PBO, gl_Tex, gl_Shader;
 GLFWwindow* window;
 ////////////////////////////////////////
 
-void displayFunc();
-void pollCommandPrompt();
+void display_func();
+void command_prompt_poll();
+void command_prompt_enqueue(int type);
+void resize(GLFWwindow* window, int width, int height);
+void delete_buffers();
 
 // Mandelbrot
-void renderOptimizer(int iterations, int delta)
+void render_optimizer(int iterations, int delta)
 {
 	// Increasing number of iterations
 	if (delta > 0)
@@ -80,543 +86,9 @@ void renderOptimizer(int iterations, int delta)
 	}
 }
 
-void writePixel(int x, int y)
-{
-	//colorDraw is the color we will draw with
-	//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
-	//palette stores the rgb of all of our hardcoded colors
-
-	if (calculation.escapeBufferCPU[y*config.resolutionX + x] == config.maxIter)
-	{
-		calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 0] = 0;
-		calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = 0;
-		calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = 0;
-		calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 3] = 255;
-	}
-	else
-	{
-		if (config.shadingMode == 0)
-		{
-			unsigned char color1[3];
-			unsigned char color2[3];
-
-			double k = calculation.escapeBufferCPU[y*config.resolutionX + x];
-
-			/*
-			This code tries to generate a color based on the escapeMatrix value.  This matrix contains
-			continuous values from 0 to maxIter.  Imagine the escapeMatrix values (0 to maxIter) being
-			divided into intervals of size 'colorDensity'.  For instance, the first interval would then
-			be 0 to 'colorDensity', second interval would be 'colorDensity' to 2*'colorDensity'.
-			For each of these intervals, the color to be drawn with is determined by linearly interpolating
-			the palette (using indices only up to 'colorsUsed'-1) based on the escapeMatrix value.
-			Overall, this creates a cyclical coloring scheme.  The colors will repeat the further we zoom
-			into the image.
-			*/
-
-			//colorDraw is the color we will draw with
-			//color1 and color2 are the colors that need to be linearly interpolated to get colorDraw
-
-			/*logzMag = abs(log(zMagSqr) / 2);
-			//potential = log(logzMag / log(2)) / log(2);
-			potential = log(logzMag) / log(2);
-			dub = k + 1 - potential;			//this result is a double
-			if (dub > maxIter || dub < -1000)
-			dub = maxIter;
-			escapeMatrix[j*w + i] = dub;
-			writePixel(i, j);*/
-
-			//figure out which two colors our point should be interpolated between, based on k
-			double kscaled = fmod(k, config.colorDensity) / config.colorDensity * (config.paletteNumber);
-			color1[0] = config.palette[4 * (int)floor(kscaled) + 0];
-			color1[1] = config.palette[4 * (int)floor(kscaled) + 1];
-			color1[2] = config.palette[4 * (int)floor(kscaled) + 2];
-
-			color2[0] = config.palette[4 * (int)floor(kscaled + 1) + 0];
-			color2[1] = config.palette[4 * (int)floor(kscaled + 1) + 1];
-			color2[2] = config.palette[4 * (int)floor(kscaled + 1) + 2];
-
-			//linearly interpolate between color1 and color2, based on fractional part of k
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 0] = (color2[0] - color1[0])*(kscaled - floor(kscaled)) + color1[0];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = (color2[1] - color1[1])*(kscaled - floor(kscaled)) + color1[1];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = (color2[2] - color1[2])*(kscaled - floor(kscaled)) + color1[2];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 3] = 255;
-		}
-		else if (config.shadingMode == 1)
-		{
-			//Monochromatic
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 0] = config.maxIter - calculation.escapeBufferCPU[y*config.resolutionX + x];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = config.maxIter - calculation.escapeBufferCPU[y*config.resolutionX + x];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = config.maxIter - calculation.escapeBufferCPU[y*config.resolutionX + x];
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 3] = 255;
-		}
-	}
-}
-
-void avx_fractal(int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
-{
-	auto begin = std::chrono::high_resolution_clock::now();
-	bool shortcut = false;
-	float constants[] = { (config.xmax - config.xmin) / config.resolutionX, (config.ymax - config.ymin) / config.resolutionY, config.xmin, config.ymin, 1.0f, 4.0f, j_init };
-	__m256 ymm0 = _mm256_broadcast_ss(constants);   // all dx
-	__m256 ymm1 = _mm256_broadcast_ss(constants + 1); // all dy
-	__m256 ymm2 = _mm256_broadcast_ss(constants + 2); // all x1
-	__m256 ymm3 = _mm256_broadcast_ss(constants + 3); // all y1
-	__m256 ymm4 = _mm256_broadcast_ss(constants + 4); // all 1's (iter increments)
-	__m256 ymm5 = _mm256_broadcast_ss(constants + 5); // all 4's (comparisons)
-	__m256 ymm6 = _mm256_broadcast_ss(constants + 6); // set to starting y position
-
-	float incr[8] = { 0.0f + i_init,1.0f + i_init,2.0f + i_init,3.0f + i_init,4.0f + i_init,5.0f + i_init,6.0f + i_init, 7.0f + i_init }; // used to reset the i position when j increases
-
-	for (int j = j_init; j < j_fin; ++j)
-	{
-		__m256 ymm7 = _mm256_set_ps(incr[0], incr[1], incr[2], incr[3], incr[4], incr[5], incr[6], incr[7]);  // i counter set to 0,1,2,..,7
-		for (int i = i_init; i < i_fin; i += 8)
-		{
-			// Rendering shortcut
-			if (calculation.screenOptimization == true)
-			{
-				if (calculation.updatePixel[j*config.resolutionX + i + 0] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 1] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 2] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 3] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 4] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 5] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 6] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 7] == false)
-				{
-					shortcut = true;
-				}
-			}
-
-			if (shortcut == false)
-			{
-				int test = 0;
-				unsigned int iter = 0;
-
-				__m256 ymm8 = _mm256_mul_ps(ymm7, ymm0);  // x0 = (i+k)*dx 
-				ymm8 = _mm256_add_ps(ymm8, ymm2);         // x0 = x1+(i+k)*dx
-				__m256 ymm9 = _mm256_mul_ps(ymm6, ymm1);  // y0 = j*dy
-				ymm9 = _mm256_add_ps(ymm9, ymm3);         // y0 = y1+j*dy
-				__m256 ymm10 = _mm256_xor_ps(ymm0, ymm0);  // zero out iteration counter
-				__m256 ymm11 = ymm10, ymm12 = ymm10;        // set initial xi=0, yi=0
-
-				do
-				{
-					__m256 ymm13 = _mm256_mul_ps(ymm11, ymm11); // xi*xi
-					__m256 ymm14 = _mm256_mul_ps(ymm12, ymm12); // yi*yi
-					__m256 ymm15 = _mm256_add_ps(ymm13, ymm14); // xi*xi+yi*yi
-
-																// xi*xi+yi*yi < 4 in each slot
-					ymm15 = _mm256_cmp_ps(ymm15, ymm5, _CMP_LT_OQ);
-					// now ymm15 has all 1s in the non overflowed locations
-					test = _mm256_movemask_ps(ymm15) & 255;      // lower 8 bits are comparisons
-					ymm15 = _mm256_and_ps(ymm15, ymm4);
-					// get 1.0f or 0.0f in each field as counters
-					// counters for each pixel iteration
-					ymm10 = _mm256_add_ps(ymm10, ymm15);
-
-					ymm15 = _mm256_mul_ps(ymm11, ymm12);        // xi*yi 
-					ymm11 = _mm256_sub_ps(ymm13, ymm14);        // xi*xi-yi*yi
-					ymm11 = _mm256_add_ps(ymm11, ymm8);         // xi <- xi*xi-yi*yi+x0 done!
-					ymm12 = _mm256_add_ps(ymm15, ymm15);        // 2*xi*yi
-					ymm12 = _mm256_add_ps(ymm12, ymm9);         // yi <- 2*xi*yi+y0	
-
-					++iter;
-				} while ((test != 0) && (iter < config.maxIter));
-
-				// write only where needed
-				int top = (i + 7) < config.resolutionX ? 8 : config.resolutionX & 7;
-				for (int k = 0; k < top; ++k)
-				{
-					if (ymm10.m256_f32[top - k - 1] == (float)config.maxIter)
-					{
-						calculation.updatePixel[j*config.resolutionX + i + k] = true;
-						calculation.escapeBufferCPU[j*config.resolutionX + i + k] = (double)config.maxIter;
-						writePixel(i + k, j);
-					}
-					else
-					{
-						calculation.escapeBufferCPU[i + k + j*config.resolutionX] = ymm10.m256_f32[top - k - 1];
-						writePixel(i + k, j);
-					}
-				}
-			}
-			// next i position - increment each slot by 8
-			ymm7 = _mm256_add_ps(ymm7, ymm5);
-			ymm7 = _mm256_add_ps(ymm7, ymm5);
-			shortcut = false;
-		}
-		ymm6 = _mm256_add_ps(ymm6, ymm4); // increment j counter
-	}
-
-	auto end = std::chrono::high_resolution_clock::now();
-	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-	printf("AVX_32 Thread #%d finished in %d milliseconds \n",
-		threadID, elasped
-		);
-}
-
-void avx_fractal_64(int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
-{
-	auto begin = std::chrono::high_resolution_clock::now();
-	bool shortcut = false;
-
-	double constants[] = { (config.xmax - config.xmin) / config.resolutionX, (config.ymax - config.ymin) / config.resolutionY, config.xmin, config.ymin, 1.0, 4.0, j_init };
-	__m256d ymm0 = _mm256_broadcast_sd(constants);   // all dx
-	__m256d ymm1 = _mm256_broadcast_sd(constants + 1); // all dy
-	__m256d ymm2 = _mm256_broadcast_sd(constants + 2); // all x1
-	__m256d ymm3 = _mm256_broadcast_sd(constants + 3); // all y1
-	__m256d ymm4 = _mm256_broadcast_sd(constants + 4); // all 1's (iter increments)
-	__m256d ymm5 = _mm256_broadcast_sd(constants + 5); // all 4's (comparisons)
-	__m256d ymm6 = _mm256_broadcast_sd(constants + 6); // set to starting y position
-
-	double incr[8] = { 0.0 + i_init,1.0 + i_init,2.0 + i_init,3.0 + i_init }; // used to reset the i position when j increases
-
-	for (int j = j_init; j < j_fin; j += 1)
-	{
-		__m256d ymm7 = _mm256_set_pd(incr[0], incr[1], incr[2], incr[3]);  // i counter set to 0,1,2,3
-		for (int i = i_init; i < i_fin; i += 4)
-		{
-			// Rendering shortcut
-			if (calculation.screenOptimization == true)
-			{
-				if (calculation.updatePixel[j*config.resolutionX + i + 0] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 1] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 2] == false &&
-					calculation.updatePixel[j*config.resolutionX + i + 3] == false)
-				{
-					shortcut = true;
-				}
-			}
-
-			if (shortcut == false)
-			{
-				__m256d ymm8 = _mm256_mul_pd(ymm7, ymm0);  // x0 = (i+k)*dx 
-				ymm8 = _mm256_add_pd(ymm8, ymm2);         // x0 = x1+(i+k)*dx
-				__m256d ymm9 = _mm256_mul_pd(ymm6, ymm1);  // y0 = j*dy
-				ymm9 = _mm256_add_pd(ymm9, ymm3);         // y0 = y1+j*dy
-				__m256d ymm10 = _mm256_xor_pd(ymm0, ymm0);  // zero out iteration counter
-				__m256d ymm11 = ymm10, ymm12 = ymm10;        // set initial xi=0, yi=0
-
-				int test = 0;
-				unsigned int iter = 0;
-				do
-				{
-					__m256d ymm13 = _mm256_mul_pd(ymm11, ymm11); // xi*xi
-					__m256d ymm14 = _mm256_mul_pd(ymm12, ymm12); // yi*yi
-					__m256d ymm15 = _mm256_add_pd(ymm13, ymm14); // xi*xi+yi*yi
-
-																 // xi*xi+yi*yi < 4 in each slot
-					ymm15 = _mm256_cmp_pd(ymm15, ymm5, _CMP_LT_OQ);
-					// now ymm15 has all 1s in the non overflowed locations
-					test = _mm256_movemask_pd(ymm15) & 255;      // lower 8 bits are comparisons
-					ymm15 = _mm256_and_pd(ymm15, ymm4);
-					// get 1.0f or 0.0f in each field as counters
-					// counters for each pixel iteration
-					ymm10 = _mm256_add_pd(ymm10, ymm15);
-
-					ymm15 = _mm256_mul_pd(ymm11, ymm12);        // xi*yi 
-					ymm11 = _mm256_sub_pd(ymm13, ymm14);        // xi*xi-yi*yi
-					ymm11 = _mm256_add_pd(ymm11, ymm8);         // xi <- xi*xi-yi*yi+x0 done!
-					ymm12 = _mm256_add_pd(ymm15, ymm15);        // 2*xi*yi
-					ymm12 = _mm256_add_pd(ymm12, ymm9);         // yi <- 2*xi*yi+y0	
-
-					++iter;
-				} while ((test != 0) && (iter < config.maxIter));
-
-
-				// write only where needed
-				int top = (i + 3) < config.resolutionX ? 4 : config.resolutionX & 3;
-				for (int k = 0; k < top; ++k)
-				{
-					calculation.escapeBufferCPU[i + k + j*config.resolutionX] = ymm10.m256d_f64[top - k - 1];
-					writePixel(i + k, j);
-				}
-			}
-
-			// next i position - increment each slot by 4
-			ymm7 = _mm256_add_pd(ymm7, ymm5);
-			shortcut = false;
-		}
-		ymm6 = _mm256_add_pd(ymm6, ymm4); // increment j counter
-	}
-
-	auto end = std::chrono::high_resolution_clock::now();
-	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-	printf("AVX_64 Thread #%d finished in %d milliseconds \n",
-		threadID, elasped
-		);
-}
-
-void fractal(int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
-{
-	auto begin = std::chrono::high_resolution_clock::now();
-	double zrCurrent;
-	double ziCurrent;
-	double zrPrevious;
-	double ziPrevious;
-
-	double xWindow = config.xmax - config.xmin;
-	double yWindow = config.ymax - config.ymin;
-
-	int m;
-	double dub;
-	int k;
-	double ci, cr, q, logzMag, zMagSqr, potential;
-	bool shortcut;
-
-	for (int j = j_init; j < j_fin; ++j) // y axis
-	{
-		/*//give percentage progress
-		m = j % (h / 100);
-		if (m == 0)
-		{
-		std::cout << "Thread: " << threadID << " Computation " << (int)(((double)(j - j_init) / (j_fin - j_init) * 100)) << "% complete.\n";
-		}*/
-		ci = config.ymin + ((double)j) * (yWindow) / config.resolutionY;
-
-		for (int i = i_init; i < i_fin; ++i) // x axis
-		{
-			shortcut = false;
-			cr = config.xmin + ((double)i) * (xWindow) / config.resolutionX;
-
-			//check whether point lies in main cardioid
-			/*q = (cr - 0.25)*(cr - 0.25) + ci*ci;
-			if (q*(q + cr - 0.25) - 0.25*ci*ci < 0)
-			{
-			escapeMatrix[j*config.resolutionX + i] = maxIter;
-			writePixel(i, j);
-			shortcut = true;
-			}
-			//check whether point lies in period-2 bulb
-			else if ((cr + 1)*(cr + 1) + ci*ci - 0.0625 < 0)
-			{
-			escapeMatrix[j*config.resolutionX + i] = maxIter;
-			writePixel(i, j);
-			shortcut = true;
-			}*/
-
-			//if point lies within main cardioid or bulb, skip computation
-
-			if (!shortcut)
-			{
-				zrPrevious = 0;
-				ziPrevious = 0;
-
-				if (calculation.screenOptimization == true)
-				{
-					if (calculation.updatePixel[j*config.resolutionX + i] == false)
-					{
-						shortcut = true;
-					}
-				}
-
-				if (shortcut == false)
-				{
-					for (k = 1; k < config.maxIter; ++k)
-					{
-						//Optimized
-						zrCurrent = zrPrevious * zrPrevious - ziPrevious * ziPrevious + cr;
-						ziCurrent = 2 * zrPrevious * ziPrevious + ci;
-						zMagSqr = zrCurrent * zrCurrent + ziCurrent * ziCurrent;
-
-						zrPrevious = zrCurrent;
-						ziPrevious = ziCurrent;
-
-						if (zMagSqr > 4)		//did some optimizations in this area
-						{
-							break;
-						}
-					}
-					//Non-convergence (k was stored as -2^31 - 1 if not handled)
-					if (k == config.maxIter)
-					{
-						calculation.updatePixel[j*config.resolutionX + i] = true;
-						calculation.escapeBufferCPU[j*config.resolutionX + i] = config.maxIter;
-						writePixel(i, j);
-						//updatePixel[j*config.resolutionX + i] = true;
-					}
-					else // Converges before maxIter
-					{
-						/*logzMag = abs(log(zMagSqr) / 2);
-						//potential = log(logzMag / log(2)) / log(2);
-						potential = log(logzMag) / log(2);
-						dub = k + 1 - potential;			//this result is a double
-						if (dub > maxIter || dub < -1000)
-						dub = maxIter;
-						escapeMatrix[j*config.resolutionX + i] = dub;
-						writePixel(i, j);*/
-
-						// Regular Shading
-						//if (updatePixel[j*config.resolutionX + i] == true)
-						{
-							if (shortcut == false)
-							{
-								calculation.escapeBufferCPU[j*config.resolutionX + i] = k;
-								writePixel(i, j);
-							}
-							//updatePixel[j*config.resolutionX + i] = false;
-						}
-					}
-				}
-			}
-		}
-	}
-	auto end = std::chrono::high_resolution_clock::now();
-	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-	printf("Standard Thread #%d finished in %d milliseconds \n",
-		threadID, elasped
-		);
-}
-
-void single_avx_fractal_32()
-{
-
-}
-
-void single_avx_fractal_64()
-{
-
-}
-
-void single_fractal()
-{
-
-}
-
-void fractalRender(int output)
-{
-	auto begin = std::chrono::high_resolution_clock::now();
-
-	std::vector<std::thread> fractalT(config.threadMax);
-	// Mode = 0 : Rectangular Subdivison
-	if (config.executionMode == 0)
-	{
-		for (int sub = 0; sub < config.threadMax; ++sub)
-		{
-			if (output == 1)
-			{
-				printf("Thread %d initalized with parameters px:[%4d,%4d], py:[%4d,%4d]\n", sub,
-					config.resolutionX / config.threadMax * sub, config.resolutionX / config.threadMax * (sub + 1),
-					0, config.resolutionY
-					);
-			}
-			switch (config.instructionSet)
-			{
-			case 0:
-				fractalT[sub] = std::thread(avx_fractal_64, config.resolutionX / config.threadMax * sub, 0, config.resolutionX / config.threadMax * (sub + 1), config.resolutionY, sub, config.threadMax);
-				break;
-			case 1:
-				fractalT[sub] = std::thread(avx_fractal, config.resolutionX / config.threadMax * sub, 0, config.resolutionX / config.threadMax * (sub + 1), config.resolutionY, sub, config.threadMax);
-				break;
-			case 2:
-				fractalT[sub] = std::thread(fractal, config.resolutionX / config.threadMax * sub, 0, config.resolutionX / config.threadMax * (sub + 1), config.resolutionY, sub, config.threadMax);
-				break;
-			}
-		}
-	}
-	// Mode = 1 : Square Subdivison
-	else if (config.executionMode == 1)
-	{
-		int thread = 0;
-		for (int y = 0; y < config.threadMax / 2; ++y) // Starting y subdivison
-		{
-			for (int x = 0; x < (config.threadMax / 2); ++x) // Starting x subdivison
-			{
-				if (x == config.threadMax / 2)
-				{
-					switch (config.instructionSet)
-					{
-					case 0:
-						fractalT[thread] = std::thread(avx_fractal_64, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 1:
-						fractalT[thread] = std::thread(avx_fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 2:
-						fractalT[thread] = std::thread(fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					}
-					if (output == 1)
-					{
-						printf("Thread %d initalized with parameters px:[%4d,%4d], py:[%4d,%4d]\n", thread,
-							(config.resolutionX*x) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))),
-							(config.resolutionY*y) / (config.threadMax / 2), (config.resolutionY*(y + 1)) / (config.resolutionY*(y + 1)) / (config.threadMax / 2)
-							);
-					}
-					thread++;
-				}
-				else if (y == config.threadMax / 2)
-				{
-					switch (config.instructionSet)
-					{
-					case 0:
-						fractalT[thread] = std::thread(avx_fractal_64, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 1:
-						fractalT[thread] = std::thread(avx_fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 2:
-						fractalT[thread] = std::thread(fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					}
-					if (output == 1)
-					{
-						printf("Thread %d initalized with parameters px:[%4d,%4d], py:[%4d,%4d]\n", thread,
-							(config.resolutionX*x) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))),
-							(config.resolutionY*y) / (config.threadMax / 2), (config.resolutionY*(y + 1)) / (config.threadMax / 2)
-							);
-
-					}
-					thread++;
-				}
-				else
-				{
-					switch (config.instructionSet)
-					{
-					case 0:
-						fractalT[thread] = std::thread(avx_fractal_64, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 1:
-						fractalT[thread] = std::thread(avx_fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					case 2:
-						fractalT[thread] = std::thread(fractal, (config.resolutionX*x) / (config.threadMax / 2), (config.resolutionY*y) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))), (config.resolutionY*(y + 1)) / (config.threadMax / 2), thread, config.threadMax);
-						break;
-					}
-					if (output == 1)
-					{
-						printf("Thread %d initalized with parameters px:[%4d,%4d], py:[%4d,%4d]\n", thread,
-							(config.resolutionX*x) / (config.threadMax / 2), (config.resolutionX*(x + 1)) / (config.threadMax / 2) + (config.resolutionX - 2 * (config.resolutionX / (config.threadMax / 2))),
-							(config.resolutionY*y) / (config.threadMax / 2), (config.resolutionY*(y + 1)) / (config.threadMax / 2)
-							);
-					}
-					thread++;
-				}
-			}
-		}
-	}
-	// Mode = 2 : Work Queue
-	else if (config.executionMode == 2)
-	{
-
-	}
-	for (int i = 0; i < config.threadMax; ++i)
-	{
-		fractalT[i].join();
-	}
-
-	auto end = std::chrono::high_resolution_clock::now();
-	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-	displayFunc();
-	printf("Fractal Render Time %d\n",
-		elasped
-		);
-}
-
 ////////////////////////////////////////
 // Renderer
-void actionZoom(double factor)
+void action_zoom(double factor)
 {
 	double centerX = (config.xmax + config.xmin) / 2;
 	double centerY = (config.ymax + config.ymin) / 2;
@@ -627,7 +99,8 @@ void actionZoom(double factor)
 	config.ymax = (centerY + (config.zoomFactor));
 	memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
 	calculation.screenStill = 0;
-	fractalRender(0);
+	f_mandelbrot->fractal_render(0);
+	display_func();
 	printf("Window is x:[%9e, %9e] y:[%9e, %9e] r:[%9e] \n",
 		config.xmin, config.xmax,
 		config.ymin, config.ymax,
@@ -635,7 +108,7 @@ void actionZoom(double factor)
 		);
 }
 
-void actionPoint(double centerX, double centerY, double factor)
+void action_point(double centerX, double centerY, double factor)
 {
 	config.zoomFactor = factor;
 	config.xmin = (centerX - ((double)config.resolutionX / config.resolutionY)*(config.zoomFactor));
@@ -644,7 +117,7 @@ void actionPoint(double centerX, double centerY, double factor)
 	config.ymax = (centerY + (config.zoomFactor));
 	memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
 	calculation.screenStill = 0;
-	fractalRender(0);
+	command_prompt_enqueue(0);
 	printf("Window is x:[%9e, %9e] y:[%9e, %9e] r:[%9e] \n",
 		config.xmin, config.xmax,
 		config.ymin, config.ymax,
@@ -652,7 +125,20 @@ void actionPoint(double centerX, double centerY, double factor)
 		);
 }
 
-void actionAdjustIterations(bool add_Mult, double factor)
+void action_ssaa(int n)
+{
+	memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
+
+	config.SSAA = n;
+
+	calculation.screenStill = 0;
+	command_prompt_enqueue(2);
+	printf("SSAA is %d\n",
+		config.SSAA
+	);
+}
+
+void action_iterations(bool add_Mult, double factor)
 {
 	if (add_Mult == 0)
 	{
@@ -690,13 +176,13 @@ void actionAdjustIterations(bool add_Mult, double factor)
 			config.maxIter = config.maxIter + factor;
 		}
 	}
-	renderOptimizer(config.maxIter, config.maxIter - calculation.prevMaxIter);
+	render_optimizer(config.maxIter, config.maxIter - calculation.prevMaxIter);
 	calculation.screenStill = 1;
-	fractalRender(0);
+	command_prompt_enqueue(1);
 	printf("Maximum iterations %d \n", config.maxIter);
 }
 
-void printError(int err, const char* msg)
+void print_error(int err, const char* msg)
 {
 	printf("Error: %d %s\n", err, msg);
 }
@@ -715,25 +201,26 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int modifie
 			switch (key)
 			{
 			case 'W': /// Zoom in
-				actionZoom(0.5);
+				action_zoom(1.0/config.zoom_coarse);
 				break;
 			case 'A': /// Decrease iterations
-				actionAdjustIterations(0, 0.5);
+				action_iterations(0, 0.5);
 				break;
 			case 'S': /// Zoom out
-				actionZoom(2);
+				action_zoom(config.zoom_coarse);
 				break;
 			case 'D': /// Increase iterations
-				actionAdjustIterations(0, 2);
+				action_iterations(0, 2);
 				break;
 			case 'Q': /// Increase iterations auto
-				for (int renderNumber = 0; renderNumber < 512; ++renderNumber)
+				for (int renderNumber = 0; renderNumber < 256; ++renderNumber)
 				{
 					calculation.prevMaxIter = config.maxIter;
 					config.maxIter = config.maxIter + 1;
-					renderOptimizer(config.maxIter, config.maxIter - calculation.prevMaxIter);
+					render_optimizer(config.maxIter, config.maxIter - calculation.prevMaxIter);
 					calculation.screenStill = 1;
-					fractalRender(0);
+					f_mandelbrot->fractal_render(0);
+					display_func();
 					printf("Maximum iterations %d \n", config.maxIter);
 				}
 				break;
@@ -763,16 +250,17 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int modifie
 				if (calculation.screenOptimization == 0)
 				{
 					calculation.screenOptimization = 1;
-					printf("Pixel Optimization: On\n");
+					printf("Render Optimization: On\n");
 				}
 				else
 				{
 					calculation.screenOptimization = 0;
-					printf("Pixel Optimization: Off\n");
+					printf("Render Optimization: Off\n");
 				}
 				break;
 			case GLFW_KEY_ESCAPE: /// Quit program
 				glfwSetWindowShouldClose(window, GLFW_TRUE);
+				delete_buffers();
 				break;
 			default:
 				break;
@@ -789,16 +277,16 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int modifie
 			switch (key)
 			{
 			case 'W': /// Zoom in
-				actionZoom(0.9);
+				action_zoom(1.0/config.zoom_fine);
 				break;
 			case 'A': /// Decrease iterations
-				actionAdjustIterations(1, -1);
+				action_iterations(1, -1);
 				break;
 			case 'S': /// Zoom out
-				actionZoom(1.1);
+				action_zoom(config.zoom_fine);
 				break;
 			case 'D': /// Increase iterations
-				actionAdjustIterations(1, 1);
+				action_iterations(1, 1);
 				break;
 			default:
 				break;
@@ -808,7 +296,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int modifie
 	}
 }
 
-void mouseClick(GLFWwindow* window, int button, int action, int mods)
+void mouse_click(GLFWwindow* window, int button, int action, int mods)
 {
 	double mouseX, mouseY;
 	glfwGetCursorPos(window, &mouseX, &mouseY);
@@ -829,7 +317,8 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods)
 			config.ymax = config.ymax + (windowY*(-1)*((double)(mouseY - config.resolutionY / 2) * 2 / config.resolutionY));
 			memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
 			calculation.screenStill = 0;
-			fractalRender(1);
+			f_mandelbrot->fractal_render(1);
+			display_func();
 			printf("Window is x:[%9e, %9e] y:[%9e, %9e] r:[%9e] \n",
 				config.xmin, config.xmax,
 				config.ymin, config.ymax,
@@ -838,7 +327,19 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
-void mouseMotion(GLFWwindow* window, double x, double y)
+void mouse_scroll(GLFWwindow* window, double scrollX, double scrollY)
+{
+	if (scrollY > 0) // Scroll forward
+	{
+		action_zoom(1.0/config.zoom_wheel);
+	}
+	else if (scrollY < 0) // Scroll back
+	{
+		action_zoom(config.zoom_wheel);
+	}
+}
+
+void mouse_motion(GLFWwindow* window, double x, double y)
 {
 	int mouseX = (int)x;
 	int mouseY = (int)y;
@@ -859,7 +360,7 @@ void mouseMotion(GLFWwindow* window, double x, double y)
 	//double fy = (double)(lasty - y) / 50.0 / (double)(imageH);
 }
 
-void displayFunc()
+void display_func()
 {
 	glBindTexture(GL_TEXTURE_2D, gl_Tex);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, config.resolutionX, config.resolutionY, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)calculation.screenBufferCPU);
@@ -888,7 +389,7 @@ void displayFunc()
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB);
-	glDisable(GL_FRAGMENT_PROGRAM_ARB);
+	//glDisable(GL_FRAGMENT_PROGRAM_ARB);
 
 	glfwSwapBuffers(window);
 }
@@ -914,7 +415,7 @@ GLuint compileASMShader(GLenum program_type, const char *code)
 	return program_id;
 }
 
-void deleteBuffers()
+void delete_buffers()
 {
 	if (calculation.screenBufferCPU)
 	{
@@ -928,10 +429,22 @@ void deleteBuffers()
 		calculation.escapeBufferCPU = NULL;
 	}
 
+	if (calculation.escapeBufferSuperSampling)
+	{
+		delete[] calculation.escapeBufferSuperSampling;
+		calculation.escapeBufferSuperSampling = NULL;
+	}
+
 	if (calculation.updatePixel)
 	{
 		delete[] calculation.updatePixel;
 		calculation.updatePixel = NULL;
+	}
+
+	if (calculation.magnitude)
+	{
+		delete[] calculation.magnitude;
+		calculation.magnitude = NULL;
 	}
 
 	if (gl_Tex)
@@ -945,12 +458,13 @@ void deleteBuffers()
 		glDeleteBuffers(1, &gl_PBO);
 		gl_PBO = NULL;
 	}
+	printf("Deleted\n");
 }
 
-bool initializeBuffers(int width, int height)
+bool initialize_buffers(int width, int height)
 {
 	// Flush buffers
-	deleteBuffers();
+	delete_buffers();
 
 	// Check for minimized window
 	if ((width == 0) && (height == 0))
@@ -959,11 +473,14 @@ bool initializeBuffers(int width, int height)
 	}
 
 	// Allocate Buffers
-	std::cout << "Resolution Set to " << width << " " << height << std::endl;
 	calculation.escapeBufferCPU = new double[width * height];
+	calculation.escapeBufferSuperSampling = new double[width * height * config.SSAA * config.SSAA];
+		calculation.magnitude = new double[width * height * config.SSAA * config.SSAA];
 	calculation.screenBufferCPU = new unsigned char[width * height * 4];
 	calculation.updatePixel = new bool[width * height];
 	memset(calculation.updatePixel, true, width * height);
+	std::cout << "Resolution Set to " << width << " " << height << std::endl;
+	std::cout << "Buffer Set to " << width * config.SSAA << " " << height * config.SSAA << std::endl;
 
 	glGenTextures(1, &gl_Tex);
 	glBindTexture(GL_TEXTURE_2D, gl_Tex);
@@ -976,40 +493,46 @@ bool initializeBuffers(int width, int height)
 
 	glGenBuffers(1, &gl_PBO);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_PBO);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, width * height * 4, calculation.screenBufferCPU, GL_STREAM_COPY);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, width * height * 4, (GLvoid*)calculation.screenBufferCPU, GL_STREAM_COPY);
 
 	gl_Shader = compileASMShader(GL_FRAGMENT_PROGRAM_ARB, "!!ARBfp1.0\n"
 		"TEX result.color, fragment.texcoord, texture[0], 2D; \n"
 		"END");
 
-	displayFunc();
-	displayFunc();
+	display_func();
+	display_func();
 	return true;
 }
 
 void resize(GLFWwindow* window, int width, int height)
 {
-	initializeBuffers(width, height);
-	config.resolutionX = width;
-	config.resolutionY = height;
+	if (width != config.resolutionX && height != config.resolutionY)
+	{
+		initialize_buffers(width, height);
+		config.resolutionX = width;
+		config.resolutionY = height;
+		config.bufferX = width * config.SSAA;
+		config.bufferY = height * config.SSAA;
 
-	glViewport(0, 0, width, height);
+		glViewport(0, 0, width, height);
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0, 1.0, 0.0, 1.0, 0.0, 1.0);
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glOrtho(0.0, 1.0, 0.0, 1.0, 0.0, 1.0);
 
-	displayFunc();
-	displayFunc();
-	fractalRender(0);
+		display_func();
+		display_func();
+		f_mandelbrot->fractal_render(0);
+		display_func();
+	}
 }
 
-void initializeGL()
+void initialize_GL()
 {
-	glfwSetErrorCallback(printError);
+	glfwSetErrorCallback(print_error);
 	if (!glfwInit())
 	{
 		exit(EXIT_FAILURE);
@@ -1023,10 +546,10 @@ void initializeGL()
 
 	// Set GLFW callback functions
 	glfwSetKeyCallback(window, keyboard);
-	glfwSetMouseButtonCallback(window, mouseClick);
-	glfwSetCursorPosCallback(window, mouseMotion);
+	glfwSetMouseButtonCallback(window, mouse_click);
+	glfwSetCursorPosCallback(window, mouse_motion);
 	glfwSetWindowSizeCallback(window, resize);
-
+	glfwSetScrollCallback(window, mouse_scroll);
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1);
@@ -1044,14 +567,13 @@ void initializeGL()
 	glLoadIdentity();
 	glOrtho(0.0, 1.0, 0.0, 1.0, 0.0, 1.0);
 
-
 	const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
 	const GLubyte* version = glGetString(GL_VERSION); // version as a string
-	printf("Renderer: %s\n", renderer);
-	printf("OpenGL version supported %s\n", version);
+	printf("\nRenderer: \t\t%s\n", renderer);
+	printf("OpenGL Version: \t%s\n", version);
 }
 
-void initalizeConfig()
+void initialize_config()
 {
 	//Load configuration
 	std::ifstream options;
@@ -1077,6 +599,7 @@ void initalizeConfig()
 		{
 			config.colorDensity = std::stoi(field);
 		}
+
 		if (token.compare("Xcoord") == 0)
 		{
 			config.xcoord = std::stoi(field);
@@ -1089,6 +612,7 @@ void initalizeConfig()
 		{
 			config.zoomFactor = std::stoi(field);
 		}
+
 		if (token.compare("InstructionSet") == 0)
 		{
 			config.instructionSet = std::stoi(field);
@@ -1097,9 +621,17 @@ void initalizeConfig()
 		{
 			config.threadMax = std::stoi(field);
 		}
+		if (token.compare("SSAA") == 0)
+		{
+			config.SSAA = std::stoi(field);
+		}
 		if (token.compare("ShadingMode") == 0)
 		{
 			config.shadingMode = std::stoi(field);
+		}
+		if (token.compare("SmoothShading") == 0)
+		{
+			config.smoothShading = std::stoi(field);
 		}
 		if (token.compare("ExecutionMode") == 0)
 		{
@@ -1109,6 +641,20 @@ void initalizeConfig()
 		{
 			config.paletteFile = field;
 		}
+
+		if (token.compare("Zoom_Coarse") == 0)
+		{
+			config.zoom_coarse = std::stod(field);
+		}
+		if (token.compare("Zoom_Fine") == 0)
+		{
+			config.zoom_fine = std::stod(field);
+		}
+		if (token.compare("Zoom_Wheel") == 0)
+		{
+			config.zoom_wheel = std::stod(field);
+		}
+
 		if (token.compare("//") == 0)
 		{
 			std::getline(options, line);	// Skip line
@@ -1166,88 +712,122 @@ void initalizeConfig()
 	config.xmax = (config.xcoord + ((double)config.resolutionX / config.resolutionY)*(config.zoomFactor));
 	config.ymin = (config.ycoord - (config.zoomFactor));
 	config.ymax = (config.ycoord + (config.zoomFactor));
+
+	config.centerX = (config.xmax + config.xmin) / 2;
+	config.centerY = (config.ymax + config.ymin) / 2;
+	config.windowX = config.xmax - config.xmin;
+	config.windowY = config.ymax - config.ymin;
+
+	config.bufferX = config.resolutionX * config.SSAA;
+	config.bufferY = config.resolutionY * config.SSAA;
 }
 
-void renderLoop()
+void render_loop()
 {
-	initializeGL();
-	initializeBuffers(config.resolutionX, config.resolutionY);
+	initialize_GL();
+	initialize_buffers(config.resolutionX, config.resolutionY);
 	do // Main Loop
 	{
 		glfwPollEvents();
-		//pollCommandPrompt();
+		command_prompt_poll();
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	} while (!glfwWindowShouldClose(window));
-
 	glfwDestroyWindow(window);
 	glfwTerminate();
-	deleteBuffers();
+	delete_buffers();
 }
 
 ////////////////////////////////////////
 // Command Handling
-void pollCommandPrompt()
-{
 
+void command_prompt_enqueue(int type)
+{
+	Command *comm;
+	if (type == 0)
+	{
+		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
+	}
+	else if (type == 1)
+	{
+		comm = new Command(config.maxIter);
+	}
+	else if (type == 2)
+	{
+		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
+		comm->type = 2;
+	}
+	commandQueue.push_back(comm);
+}
+
+void command_prompt_poll()
+{
+	if (commandQueue.empty() == false)
+	{
+		Command *comm = commandQueue.back();
+		commandQueue.pop_back();
+		std::thread render;
+		if (comm->type == 2)
+		{
+			config.bufferX = config.resolutionX * config.SSAA;
+			config.bufferY = config.resolutionY * config.SSAA;
+			initialize_buffers(config.resolutionX, config.resolutionY);
+			
+			f_mandelbrot->fractal_render(1);
+			display_func();
+		}
+		else
+		{
+			f_mandelbrot->fractal_render(1);
+			display_func();
+		}
+	}
 }
 
 void display_help()
 {
 	printf("\nOpenGL Renderer Commands\n");
-	printf("[w] Zoom in : 2x\n");
-	printf("[s] Zoom out : 2x\n");
+	printf("[left mouse] Change center\n");
+	printf("[mouse wheel up] Zoom in : %fx\n", config.zoom_wheel);
+	printf("[mouse wheel down] Zoom out : %fx\n\n", config.zoom_wheel);
+
+	printf("Course Adjustment\n");
+	printf("[w] Zoom in : %fx\n", config.zoom_coarse);
+	printf("[s] Zoom out : %fx\n", config.zoom_coarse);
 	printf("[a] Increase iterations : 2x\n");
 	printf("[d] Decrease iterations : 2x\n\n");
 
-	printf("SHIFT + [w] Zoom in : 1.1x\n");
-	printf("SHIFT + [s] Zoom out : 1.1x\n");
-	printf("SHIFT + [a] Increase iterations : 1\n");
-	printf("SHIFT + [d] Decrease iterations : 1\n\n");
+	printf("Fine Adjustment\n");
+	printf("CTRL + [w] Zoom in : %fx\n", config.zoom_fine);
+	printf("CTRL + [s] Zoom out : %fx\n", config.zoom_fine);
+	printf("CTRL + [a] Increase iterations : 1\n");
+	printf("CTRL + [d] Decrease iterations : 1\n\n");
 
 	printf("[q] Auto iterate : 256\n");
 	printf("[/] Change Instruction Set\n");
 	printf("[.] Toggle Render Optimization\n\n");
+	printf("[?] This Display\n\n");
 
-	printf("\nTerminal Mode Commands\n");
+	printf("Terminal Mode Commands\n");
 	printf("\"point x y r\" \t refocus the graph onto a specified point.\n");
 	printf("\"resize x y\" \t resize the resolution of the window.\n");
-}
-
-void command_resize(int width, int height)
-{
-	if (window)
-	{
-		resize(window, width, height);
-	}
-	else
-	{
-		printf("Graph not running!");
-	}
-}
-
-void command_point(int x, int y, int r)
-{
-	if (window)
-	{
-
-	}
-	else
-	{
-		printf("Graph not running!");
-	}
+	printf("\"ssaa n\" \t change supersampling level, set to 1 to disable.\n");
 }
 
 int main(int argc, char **argv)
 {
-	initalizeConfig();
+	initialize_config();
 
 	std::thread renderWindow;
-	renderWindow = std::thread(renderLoop);
+	renderWindow = std::thread(render_loop);
+
+	f_mandelbrot = new F_Mandelbrot(calculation, config);
 
 	std::ifstream options;
 	std::string line;
 	std::string command;
 	std::string field;
+
+	display_help();
 	do
 	{
 		std::getline(std::cin, line);
@@ -1259,7 +839,7 @@ int main(int argc, char **argv)
 		}
 		else if (command.compare("point") == 0)
 		{
-			int x, y, r;
+			double x, y, r;
 
 			std::stringstream stream(field);
 			stream >> x;
@@ -1269,11 +849,11 @@ int main(int argc, char **argv)
 			stream >> r;
 			stream.ignore();
 
-			actionPoint(x, y, r);
+			action_point(x, y, r);
 		}
 		else if (command.compare("resize") == 0)
 		{
-			int x, y;
+			int x = NULL, y = NULL;
 
 			std::stringstream stream(field);
 			stream >> x;
@@ -1281,7 +861,42 @@ int main(int argc, char **argv)
 			stream >> y;
 			stream.ignore();
 
-			glfwSetWindowSize(window, x, y);
+			if (x == NULL && y == NULL)
+			{
+				printf("resolution x = %d, y= %d\n", config.resolutionX, config.resolutionY);
+			}
+			else if (x == NULL || x < 0)
+			{
+				printf("x param bad\n");
+			}
+			else if (y == NULL || y < 0)
+			{
+				printf("y param bad\n");
+			}
+			else
+			{
+				glfwSetWindowSize(window, x, y);
+			}
+		}
+		else if (command.compare("ssaa") == 0)
+		{
+			int n = NULL;
+			std::stringstream stream(field);
+			stream >> n;
+			stream.ignore();
+
+			if (n == NULL)
+			{
+				printf("ssaa = %d\n", config.SSAA);
+			}
+			else if (n < 0)
+			{
+				printf("ssaa param bad\n");
+			}
+			else
+			{
+				action_ssaa(n);
+			}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	} while (true);

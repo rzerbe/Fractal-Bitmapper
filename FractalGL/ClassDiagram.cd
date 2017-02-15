@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Command" Collapsed="true">
+    <Position X="6" Y="1.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAACAAAAAEAAAAABgABAEQJAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Command.h</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="F_Mandelbrot" Collapsed="true">
+    <Position X="8" Y="1.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAADAAAAAAAQAAQEAAAAQAAgAAEAEAgIAAAAAAAAEAA=</HashCode>
+      <FileName>F_Mandelbrot.h</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Struct Name="Calculation_Data" Collapsed="true">
+    <Position X="6" Y="3" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACAgQAAAACAABAAgAAAAAAAAAAAAAAAAAQAAAAAAABE=</HashCode>
+      <FileName>Calculation.h</FileName>
+    </TypeIdentifier>
+  </Struct>
+  <Struct Name="Configuration" Collapsed="true">
+    <Position X="8" Y="3" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>KAAIAEAgCAEAAEAEIsCAADgAQAAEBAAiDAAAwEAAEoA=</HashCode>
+      <FileName>Configuration.h</FileName>
+    </TypeIdentifier>
+  </Struct>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

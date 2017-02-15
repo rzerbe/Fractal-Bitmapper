@@ -27,6 +27,8 @@ $RECYCLE.BIN/
 *.ipdb
 *.pdb
 *.ilk
+*.VC.db
+*.db
 
 FractalGL/Intermediate
 
