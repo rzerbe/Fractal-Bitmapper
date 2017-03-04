@@ -32,6 +32,7 @@
 Configuration config;
 Calculation_Data calculation;
 F_Mandelbrot *f_mandelbrot;
+F_Buddhabrot *f_buddhabrot;
 std::vector<Command*> commandQueue;
 
 // Graphics
@@ -182,6 +183,13 @@ void action_iterations(bool add_Mult, double factor)
 	printf("Maximum iterations %d \n", config.maxIter);
 }
 
+void action_buddha()
+{
+	f_buddhabrot = new F_Buddhabrot(calculation, config);
+	calculation.screenStill = 0;
+	command_prompt_enqueue(3);
+}
+
 void print_error(int err, const char* msg)
 {
 	printf("Error: %d %s\n", err, msg);
@@ -212,6 +220,51 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int modifie
 			case 'D': /// Increase iterations
 				action_iterations(0, 2);
 				break;
+			case GLFW_KEY_LEFT:
+			{
+				double delta = (config.xmax - config.xmin);
+				config.xmax = config.xmax - (delta) * (0.1);
+				config.xmin = config.xmin - (delta) * (0.1);
+				calculation.screenStill = 0;
+				memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
+				f_mandelbrot->fractal_render(0);
+				display_func();
+				break;
+			}
+			case GLFW_KEY_RIGHT:
+			{
+				double delta = (config.xmax - config.xmin);
+				config.xmax = config.xmax + (delta) * (0.1);
+				config.xmin = config.xmin + (delta) * (0.1);
+				calculation.screenStill = 0;
+				memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
+				f_mandelbrot->fractal_render(0);
+				display_func();
+				break;
+			}
+			case GLFW_KEY_UP:
+			{
+				double delta = (config.ymax - config.ymin);
+				config.ymax = config.ymax - (delta) * (0.1);
+				config.ymin = config.ymin - (delta) * (0.1);
+				calculation.screenStill = 0;
+				memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
+				f_mandelbrot->fractal_render(0);
+				display_func();
+				break;
+			}
+			case GLFW_KEY_DOWN:
+			{
+				double delta = (config.ymax - config.ymin);
+				config.ymax = config.ymax + (delta) * (0.1);
+				config.ymin = config.ymin + (delta) * (0.1);
+				calculation.screenStill = 0;
+				memset(calculation.updatePixel, true, config.resolutionX * config.resolutionY);
+				f_mandelbrot->fractal_render(0);
+				display_func();
+				break;
+			}
+
 			case 'Q': /// Increase iterations auto
 				for (int renderNumber = 0; renderNumber < 256; ++renderNumber)
 				{
@@ -394,6 +447,42 @@ void display_func()
 	glfwSwapBuffers(window);
 }
 
+void output_bitmap()
+{
+	FILE *f;
+	unsigned char *img = NULL;
+	int filesize = 54 + 3 * config.resolutionX*config.resolutionY;
+
+	unsigned char bmpfileheader[14] = { 'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0 };
+	unsigned char bmpinfoheader[40] = { 40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 32,0 };
+	unsigned char bmppad[4] = { 0,0,0,0 };
+
+	bmpfileheader[2] = (unsigned char)(filesize);
+	bmpfileheader[3] = (unsigned char)(filesize >> 8);
+	bmpfileheader[4] = (unsigned char)(filesize >> 16);
+	bmpfileheader[5] = (unsigned char)(filesize >> 24);
+
+	bmpinfoheader[4] = (unsigned char)(config.resolutionX);
+	bmpinfoheader[5] = (unsigned char)(config.resolutionX >> 8);
+	bmpinfoheader[6] = (unsigned char)(config.resolutionX >> 16);
+	bmpinfoheader[7] = (unsigned char)(config.resolutionX >> 24);
+	bmpinfoheader[8] = (unsigned char)(config.resolutionY);
+	bmpinfoheader[9] = (unsigned char)(config.resolutionY >> 8);
+	bmpinfoheader[10] = (unsigned char)(config.resolutionY >> 16);
+	bmpinfoheader[11] = (unsigned char)(config.resolutionY >> 24);
+
+	fopen_s(&f, "output.bmp", "wb");
+	fwrite(bmpfileheader, 1, 14, f);
+	fwrite(bmpinfoheader, 1, 40, f);
+
+	for (int j = 0; j < config.resolutionY; j++)
+	{
+		fwrite((calculation.screenBufferCPU+4*j*config.resolutionX), sizeof(char), 4 * config.resolutionX, f);
+		//fwrite(bmppad, 1, (4 - (j * 3) % 4) % 4, f);
+	}
+	fclose(f);
+}
+
 GLuint compileASMShader(GLenum program_type, const char *code)
 {
 	GLuint program_id;
@@ -475,7 +564,7 @@ bool initialize_buffers(int width, int height)
 	// Allocate Buffers
 	calculation.escapeBufferCPU = new double[width * height];
 	calculation.escapeBufferSuperSampling = new double[width * height * config.SSAA * config.SSAA];
-		calculation.magnitude = new double[width * height * config.SSAA * config.SSAA];
+	calculation.magnitude = new double[width * height * config.SSAA * config.SSAA];
 	calculation.screenBufferCPU = new unsigned char[width * height * 4];
 	calculation.updatePixel = new bool[width * height];
 	memset(calculation.updatePixel, true, width * height);
@@ -612,6 +701,14 @@ void initialize_config()
 		{
 			config.zoomFactor = std::stoi(field);
 		}
+		if (token.compare("ResolutionX") == 0)
+		{
+			config.resolutionX = std::stoi(field);
+		}
+		if (token.compare("ResolutionY") == 0)
+		{
+			config.resolutionY = std::stoi(field);
+		}
 
 		if (token.compare("InstructionSet") == 0)
 		{
@@ -743,18 +840,20 @@ void render_loop()
 void command_prompt_enqueue(int type)
 {
 	Command *comm;
-	if (type == 0)
+	if (type == 0 || type == 3)
 	{
 		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
+		comm->type = type;
 	}
 	else if (type == 1)
 	{
 		comm = new Command(config.maxIter);
+		comm->type = type;
 	}
 	else if (type == 2)
 	{
 		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
-		comm->type = 2;
+		comm->type = type;
 	}
 	commandQueue.push_back(comm);
 }
@@ -773,6 +872,11 @@ void command_prompt_poll()
 			initialize_buffers(config.resolutionX, config.resolutionY);
 			
 			f_mandelbrot->fractal_render(1);
+			display_func();
+		}
+		else if (comm->type == 3) // Buddhabrot
+		{
+			f_buddhabrot->fractal_render(1);
 			display_func();
 		}
 		else
@@ -863,15 +967,19 @@ int main(int argc, char **argv)
 
 			if (x == NULL && y == NULL)
 			{
-				printf("resolution x = %d, y= %d\n", config.resolutionX, config.resolutionY);
+				printf("resolution x = %d, y = %d\n", config.resolutionX, config.resolutionY);
 			}
 			else if (x == NULL || x < 0)
 			{
 				printf("x param bad\n");
 			}
-			else if (y == NULL || y < 0)
+			else if (y == NULL && x > 0)
 			{
-				printf("y param bad\n");
+				glfwSetWindowSize(window, x, x);
+			}
+			else if (y == NULL && x < 0)
+			{
+				printf("x param bad\n");
 			}
 			else
 			{
@@ -898,6 +1006,27 @@ int main(int argc, char **argv)
 				action_ssaa(n);
 			}
 		}
+		else if (command.compare("save_image") == 0)
+		{
+			output_bitmap();
+			printf("Image saved as output.bmp\n");
+		}
+		else if (command.compare("buddhabrot") == 0)
+		{
+			action_buddha();
+		}
+		else if (command.compare("exit") == 0)
+		{
+			glfwDestroyWindow(window);
+			glfwTerminate();
+			delete_buffers();
+			return 0;
+		}
+		else
+		{
+			printf("Unrecognized Command\n");
+		}
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	} while (true);
 
