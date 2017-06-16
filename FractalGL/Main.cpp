@@ -26,6 +26,7 @@
 #include "Command.h"
 #include "F_Mandelbrot.h"
 #include "F_Buddhabrot.h"
+#include "Input.h"
 
 ////////////////////////////////////////
 // Program Data
@@ -44,6 +45,7 @@ void display_func();
 void command_prompt_poll();
 void command_prompt_enqueue(int type);
 void resize(GLFWwindow* window, int width, int height);
+bool initialize_buffers(int resolutionX, int resolutionY, bool display);
 void delete_buffers();
 
 // Mandelbrot
@@ -87,8 +89,6 @@ void render_optimizer(int iterations, int delta)
 	}
 }
 
-////////////////////////////////////////
-// Renderer
 void action_zoom(double factor)
 {
 	double centerX = (config.xmax + config.xmin) / 2;
@@ -139,9 +139,9 @@ void action_ssaa(int n)
 	);
 }
 
-void action_iterations(bool add_Mult, double factor)
+void action_iterations(bool addOrMult, double factor)
 {
-	if (add_Mult == 0)
+	if (addOrMult == 0)
 	{
 		// Division
 		if (factor < 1)
@@ -405,7 +405,9 @@ void mouse_motion(GLFWwindow* window, double x, double y)
 		mouseX, mouseY,
 		centerX + windowX*((double)(mouseX - config.resolutionX / 2) * 2 / config.resolutionX), centerY + windowY*(-1)*((double)(mouseY - config.resolutionY / 2) * 2 / config.resolutionY),
 		(int)calculation.escapeBufferCPU[config.resolutionX*mouseY + mouseX],
-		(int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 0)], (int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 1)], (int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 2)],
+		(int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 2)], 
+		(int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 1)], 
+		(int)calculation.screenBufferCPU[(4 * (config.resolutionX*mouseY + mouseX) + 0)],
 		(int)calculation.updatePixel[config.resolutionX*mouseY + mouseX]
 		);
 
@@ -413,10 +415,11 @@ void mouse_motion(GLFWwindow* window, double x, double y)
 	//double fy = (double)(lasty - y) / 50.0 / (double)(imageH);
 }
 
+// Rendering
 void display_func()
 {
 	glBindTexture(GL_TEXTURE_2D, gl_Tex);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, config.resolutionX, config.resolutionY, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)calculation.screenBufferCPU);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, config.resolutionX, config.resolutionY, GL_BGRA, GL_UNSIGNED_BYTE, (GLvoid*)calculation.screenBufferCPU);
 
 	glBindProgramARB(GL_FRAGMENT_PROGRAM_ARB, gl_Shader);
 	glEnable(GL_FRAGMENT_PROGRAM_ARB);
@@ -447,11 +450,10 @@ void display_func()
 	glfwSwapBuffers(window);
 }
 
-void output_bitmap()
+void output_bitmap(std::string filename)
 {
-	FILE *f;
-	unsigned char *img = NULL;
-	int filesize = 54 + 3 * config.resolutionX*config.resolutionY;
+	FILE *f = NULL;
+	uint32_t filesize = 54 + 3 * config.resolutionX*config.resolutionY;
 
 	unsigned char bmpfileheader[14] = { 'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0 };
 	unsigned char bmpinfoheader[40] = { 40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 32,0 };
@@ -471,7 +473,7 @@ void output_bitmap()
 	bmpinfoheader[10] = (unsigned char)(config.resolutionY >> 16);
 	bmpinfoheader[11] = (unsigned char)(config.resolutionY >> 24);
 
-	fopen_s(&f, "output.bmp", "wb");
+	fopen_s(&f, filename.c_str(), "wb");
 	fwrite(bmpfileheader, 1, 14, f);
 	fwrite(bmpinfoheader, 1, 40, f);
 
@@ -481,6 +483,90 @@ void output_bitmap()
 		//fwrite(bmppad, 1, (4 - (j * 3) % 4) % 4, f);
 	}
 	fclose(f);
+}
+
+void output_render(std::string filename, std::string fractal, int resolutionX, int resolutionY)
+{
+	auto begin = std::chrono::high_resolution_clock::now();
+
+	Configuration tempConfig;
+	Calculation_Data tempCalculation;
+
+	tempConfig = config;
+	tempCalculation = calculation;
+
+	tempConfig.resolutionX = resolutionX;
+	tempConfig.resolutionY = resolutionY;
+	tempConfig.bufferX = resolutionX * tempConfig.SSAA;
+	tempConfig.bufferY = resolutionY * tempConfig.SSAA;
+	
+	tempCalculation.escapeBufferCPU = NULL;
+	tempCalculation.escapeBufferSuperSampling = NULL;
+	tempCalculation.magnitude = NULL;
+	tempCalculation.updatePixel = NULL;
+	tempCalculation.screenBufferCPU = new unsigned char[resolutionX * resolutionY * 4];
+
+	if (fractal.compare("mandelbrot") == 0)
+	{
+		F_Mandelbrot *temp_f_mandelbrot = new F_Mandelbrot(tempCalculation, tempConfig);
+		tempCalculation.escapeBufferCPU = new double[resolutionX * resolutionY];
+		tempCalculation.escapeBufferSuperSampling = new double[resolutionX * resolutionY * tempConfig.SSAA * tempConfig.SSAA];
+		tempCalculation.magnitude = new double[resolutionX * resolutionY];
+		tempCalculation.updatePixel = new bool[resolutionX * resolutionY];
+		temp_f_mandelbrot->fractal_render(1);
+		delete temp_f_mandelbrot;
+	}
+	else if (fractal.compare("buddhabrot") == 0)
+	{
+		F_Buddhabrot *temp_f_buddhabrot = new F_Buddhabrot(tempCalculation, tempConfig);
+		temp_f_buddhabrot->fractal_render(1);
+		delete temp_f_buddhabrot;
+	}
+
+	FILE *f = NULL;
+	uint32_t filesize = 54 + 3 * resolutionX * resolutionY;
+
+	uint8_t bmpfileheader[14] = { 'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0 };
+	uint8_t bmpinfoheader[40] = { 40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 32,0 };
+	uint8_t bmppad[4] = { 0,0,0,0 };
+
+	bmpfileheader[2] = (uint8_t)(filesize);
+	bmpfileheader[3] = (uint8_t)(filesize >> 8);
+	bmpfileheader[4] = (uint8_t)(filesize >> 16);
+	bmpfileheader[5] = (uint8_t)(filesize >> 24);
+
+	bmpinfoheader[4] = (uint8_t)(tempConfig.resolutionX);
+	bmpinfoheader[5] = (uint8_t)(tempConfig.resolutionX >> 8);
+	bmpinfoheader[6] = (uint8_t)(tempConfig.resolutionX >> 16);
+	bmpinfoheader[7] = (uint8_t)(tempConfig.resolutionX >> 24);
+	bmpinfoheader[8] = (uint8_t)(tempConfig.resolutionY);
+	bmpinfoheader[9] = (uint8_t)(tempConfig.resolutionY >> 8);
+	bmpinfoheader[10] = (uint8_t)(tempConfig.resolutionY >> 16);
+	bmpinfoheader[11] = (uint8_t)(tempConfig.resolutionY >> 24);
+
+	fopen_s(&f, filename.c_str(), "wb");
+	fwrite(bmpfileheader, 1, 14, f);
+	fwrite(bmpinfoheader, 1, 40, f);
+
+	for (int j = 0; j < resolutionY; j++)
+	{
+		fwrite((tempCalculation.screenBufferCPU + 4 * j * resolutionX), sizeof(char), 4 * resolutionX, f);
+		//fwrite(bmppad, 1, (4 - (j * 3) % 4) % 4, f);
+	}
+	fclose(f);
+
+	delete tempCalculation.screenBufferCPU;
+
+	delete tempCalculation.escapeBufferCPU;
+	delete tempCalculation.escapeBufferSuperSampling;
+	delete tempCalculation.magnitude;
+	delete tempCalculation.updatePixel;
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+	printf("Write Render Time %d milliseconds\n",
+		elasped
+	);
 }
 
 GLuint compileASMShader(GLenum program_type, const char *code)
@@ -550,10 +636,13 @@ void delete_buffers()
 	printf("Deleted\n");
 }
 
-bool initialize_buffers(int width, int height)
+bool initialize_buffers(int width, int height, bool display)
 {
 	// Flush buffers
-	delete_buffers();
+	if (display == true)
+	{
+		delete_buffers();
+	}
 
 	// Check for minimized window
 	if ((width == 0) && (height == 0))
@@ -577,7 +666,7 @@ bool initialize_buffers(int width, int height)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)calculation.screenBufferCPU);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, (GLvoid*)calculation.screenBufferCPU);
 	glEnable(GL_TEXTURE_2D);
 
 	glGenBuffers(1, &gl_PBO);
@@ -588,8 +677,11 @@ bool initialize_buffers(int width, int height)
 		"TEX result.color, fragment.texcoord, texture[0], 2D; \n"
 		"END");
 
-	display_func();
-	display_func();
+	if (display == true) // Display
+	{
+		display_func();
+		display_func();
+	}
 	return true;
 }
 
@@ -597,7 +689,7 @@ void resize(GLFWwindow* window, int width, int height)
 {
 	if (width != config.resolutionX && height != config.resolutionY)
 	{
-		initialize_buffers(width, height);
+		initialize_buffers(width, height, true);
 		config.resolutionX = width;
 		config.resolutionY = height;
 		config.bufferX = width * config.SSAA;
@@ -752,6 +844,36 @@ void initialize_config()
 			config.zoom_wheel = std::stod(field);
 		}
 
+		if (token.compare("Iteration_Max_Red") == 0)
+		{
+			config.iteration_max_red = std::stoul(field);
+		}
+
+		if (token.compare("Iteration_Max_Green") == 0)
+		{
+			config.iteration_max_green = std::stoul(field);
+		}
+
+		if (token.compare("Iteration_Max_Blue") == 0)
+		{
+			config.iteration_max_blue = std::stoul(field);
+		}
+
+		if (token.compare("Sample_Size_Red") == 0)
+		{
+			config.sample_size_red = std::stoul(field);
+		}
+
+		if (token.compare("Sample_Size_Green") == 0)
+		{
+			config.sample_size_green = std::stoul(field);
+		}
+
+		if (token.compare("Sample_Size_Blue") == 0)
+		{
+			config.sample_size_blue = std::stoul(field);
+		}
+
 		if (token.compare("//") == 0)
 		{
 			std::getline(options, line);	// Skip line
@@ -790,20 +912,20 @@ void initialize_config()
 		stream >> paletteBlue;
 		stream.ignore();
 
-		config.palette[4 * paletteIndex + 0] = (unsigned char)paletteRed;
-		config.palette[4 * paletteIndex + 1] = (unsigned char)paletteGreen;
-		config.palette[4 * paletteIndex + 2] = (unsigned char)paletteBlue;
 		config.palette[4 * paletteIndex + 3] = 255;
+		config.palette[4 * paletteIndex + 2] = (unsigned char)paletteRed;
+		config.palette[4 * paletteIndex + 1] = (unsigned char)paletteGreen;
+		config.palette[4 * paletteIndex + 0] = (unsigned char)paletteBlue;
 
 		std::cout << "Palette " << paletteIndex << ": " << (int)config.palette[4 * paletteIndex + 0] << " " << (int)config.palette[4 * paletteIndex + 1] << " " << (int)config.palette[4 * paletteIndex + 2] << std::endl;
 	}
 	palette.close();
 
 	//modify the palette so that colors do not immediately switch at the boundary
-	config.palette[4 * (config.paletteNumber) + 0] = config.palette[0];
-	config.palette[4 * (config.paletteNumber) + 1] = config.palette[1];
-	config.palette[4 * (config.paletteNumber) + 2] = config.palette[2];
 	config.palette[4 * (config.paletteNumber) + 3] = config.palette[3];
+	config.palette[4 * (config.paletteNumber) + 2] = config.palette[2];
+	config.palette[4 * (config.paletteNumber) + 1] = config.palette[1];
+	config.palette[4 * (config.paletteNumber) + 0] = config.palette[0];
 
 	config.xmin = (config.xcoord - ((double)config.resolutionX / config.resolutionY)*(config.zoomFactor));
 	config.xmax = (config.xcoord + ((double)config.resolutionX / config.resolutionY)*(config.zoomFactor));
@@ -822,7 +944,7 @@ void initialize_config()
 void render_loop()
 {
 	initialize_GL();
-	initialize_buffers(config.resolutionX, config.resolutionY);
+	initialize_buffers(config.resolutionX, config.resolutionY, true);
 	do // Main Loop
 	{
 		glfwPollEvents();
@@ -836,6 +958,73 @@ void render_loop()
 
 ////////////////////////////////////////
 // Command Handling
+
+std::vector<std::string> vectorize_input()
+{
+	std::vector<std::string> tokens;
+	std::ifstream input;
+	std::string line;
+	std::string token;
+	char iterator;
+
+	std::getline(std::cin, line);
+	line += '\n';
+	while (!line.empty())
+	{
+		iterator = line.at(0);
+		if (iterator == '/')
+		{
+			iterator = line.at(1);
+			if (iterator == '/')
+			{
+				break; // Skip Line
+			}
+			else
+			{
+				iterator = line.at(0);
+			}
+		}
+
+		if (iterator == '{' || iterator == '}' || iterator == '[' || iterator == ']')
+		{
+			if (token.length() > 0)
+			{
+				// Commit current input token
+				tokens.push_back(token);
+				token = "";
+				// Commit reserved symbol
+				tokens.push_back(line.substr(0, 1));
+				line.erase(line.begin());
+			}
+			else
+			{
+				tokens.push_back(line.substr(0, 1));
+				line.erase(line.begin());
+			}
+		}
+		else if (!isspace(iterator))
+		{
+			// Grab next symbol
+			token.append(line.substr(0, 1));
+			line.erase(line.begin());
+		}
+		else if (token.length() > 0 && (isspace(iterator)))
+		{
+			// Commit current input token
+			tokens.push_back(token);
+			token = "";
+			line.erase(line.begin());
+		}
+		else
+		{
+			line.erase(line.begin());
+		}
+	}
+
+	std::reverse(tokens.begin(), tokens.end());
+
+	return tokens;
+}
 
 void command_prompt_enqueue(int type)
 {
@@ -855,6 +1044,16 @@ void command_prompt_enqueue(int type)
 		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
 		comm->type = type;
 	}
+	else if (type == 4)
+	{
+		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
+		comm->type = type;
+	}
+	else if (type == 5)
+	{
+		comm = new Command(config.centerX, config.centerY, config.zoomFactor);
+		comm->type = type;
+	}
 	commandQueue.push_back(comm);
 }
 
@@ -869,7 +1068,7 @@ void command_prompt_poll()
 		{
 			config.bufferX = config.resolutionX * config.SSAA;
 			config.bufferY = config.resolutionY * config.SSAA;
-			initialize_buffers(config.resolutionX, config.resolutionY);
+			initialize_buffers(config.resolutionX, config.resolutionY, true);
 			
 			f_mandelbrot->fractal_render(1);
 			display_func();
@@ -878,6 +1077,14 @@ void command_prompt_poll()
 		{
 			f_buddhabrot->fractal_render(1);
 			display_func();
+		}
+		else if (comm->type == 4) // Clear Buffers
+		{
+			delete_buffers();
+		}
+		else if (comm->type == 5) // Init
+		{
+			initialize_buffers(config.resolutionX, config.resolutionY, false);
 		}
 		else
 		{
@@ -1008,8 +1215,66 @@ int main(int argc, char **argv)
 		}
 		else if (command.compare("save_image") == 0)
 		{
-			output_bitmap();
-			printf("Image saved as output.bmp\n");
+			std::string filename;
+			std::stringstream stream(field);
+			stream >> filename;
+			if (filename.compare("") == 0)
+			{
+				printf("filename is empty\n");
+			}
+			else
+			{
+				filename += ".bmp";
+				output_bitmap(filename);
+				printf("Image saved as %s\n", filename.c_str());
+			}
+		}
+		else if (command.compare("save_render") == 0)
+		{
+			std::stringstream stream(field);
+			std::string filename, fractal;
+			int x = NULL, y = NULL;
+			stream >> filename;
+			stream >> fractal;
+			stream >> x;
+			stream >> y;
+
+			if (filename.compare("") == 0)
+			{
+				printf("filename is empty\n");
+			}
+			else if (fractal.compare("") == 0)
+			{
+				printf("fractal is empty\n");
+			}
+			else if (fractal.compare("mandelbrot") != 0
+				&& fractal.compare("buddhabrot") != 0)
+			{
+				printf("fractal unrecognized\n");
+			}
+			else if (x == NULL || x < 0)
+			{
+				printf("x param bad\n");
+			}
+			else if (y == NULL && x < 0)
+			{
+				printf("x param bad\n");
+			}
+			else if (y == NULL && x > 0)
+			{
+				y = x;
+				filename += ".bmp";
+				printf("Rendering %s with resolution [%d,%d]\n", fractal.c_str(), x, y);
+				output_render(filename, fractal, x, y);
+				printf("Image saved as %s\n", filename.c_str());
+			}
+			else
+			{
+				filename += ".bmp";
+				printf("Rendering %s with resolution [%d,%d]\n", fractal.c_str(), x, y);
+				output_render(filename, fractal, x, y);
+				printf("Image saved as %s\n", filename.c_str());
+			}
 		}
 		else if (command.compare("buddhabrot") == 0)
 		{

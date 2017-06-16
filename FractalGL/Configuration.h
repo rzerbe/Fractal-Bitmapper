@@ -4,7 +4,7 @@ struct Configuration
 	bool renderCPU = 1;
 	bool renderGPU = 1;
 
-	int maxIter = 256;
+	uint32_t maxIter = 256;
 	int paletteNumber = 8;
 	int colorDensity = 256;
 	int colorsUsed = 8;
@@ -28,10 +28,29 @@ struct Configuration
 	int bufferX = 512;
 	int bufferY = 512;
 
+	int prevResolutionX = 512;
+	int prevResolutionY = 512;
+
+	int prevBufferX = 512;
+	int prevBufferY = 512;
+
 	unsigned char *palette;
 
 	double xmin, ymin = -1;
 	double xmax, ymax = 1;
 	double xcoord, ycoord, windowWidth, windowHeight;
 	double centerX, centerY, windowX, windowY;
+
+	// Buddhabrot
+	uint64_t iteration_max_red = 1000;
+	uint64_t iteration_max_green = 3000;
+	uint64_t iteration_max_blue = 5000;
+
+	uint64_t iteration_min_red = 0;
+	uint64_t iteration_min_green = 0;
+	uint64_t iteration_min_blue = 0;
+
+	uint64_t sample_size_red = 200000000;
+	uint64_t sample_size_green = 200000000;
+	uint64_t sample_size_blue = 200000000;
 };

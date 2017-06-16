@@ -25,10 +25,8 @@
 
 #include <stdint.h>
 //https://en.wikipedia.org/wiki/Xorshift
-/* The state must be seeded so that it is not everywhere zero. */
-uint64_t s[8];
 
-inline uint64_t xorshift128plus(int thread) {
+inline uint64_t F_Buddhabrot::xorshift128plus(int thread) {
 	uint64_t x = s[0+2*thread];
 	uint64_t const y = s[1+2*thread];
 	s[0+2*thread] = y;
@@ -40,38 +38,42 @@ inline uint64_t xorshift128plus(int thread) {
 F_Buddhabrot::F_Buddhabrot(Calculation_Data &calc, Configuration &conf)
 	: calculation(calc), config(conf)
 {
+
+	s = new uint64_t[config.threadMax * 2];
+
 	for (int i = 0; i < config.threadMax * 2; i++)
 	{
 		s[i] = i;
 	}
 
-	iteration_max_red = 10000;
-	iteration_max_green = 500;
-	iteration_max_blue = 100;
+	iteration_max_red = config.iteration_max_red;
+	iteration_max_green = config.iteration_max_green;
+	iteration_max_blue = config.iteration_max_blue;
 
-	iteration_min_red = 0;
-	iteration_min_green = 0;
-	iteration_min_blue = 0;
+	iteration_min_red = config.iteration_min_red;
+	iteration_min_green = config.iteration_min_green;
+	iteration_min_blue = config.iteration_min_blue;
 
-	sample_size_red = 2000000000;
-	sample_size_green = 2000000000;
-	sample_size_blue = 2000000000;
+	sample_size_red = config.sample_size_red;
+	sample_size_green = config.sample_size_green;
+	sample_size_blue = config.sample_size_blue;
 
 	highest_escape_red = 0;
 	highest_escape_green = 0;
 	highest_escape_blue = 0;
 
-	iteration_red = new unsigned int[config.resolutionX * config.resolutionY];
-	iteration_green = new unsigned int[config.resolutionX * config.resolutionY];
-	iteration_blue = new unsigned int[config.resolutionX * config.resolutionY];
+	iteration_red = new uint32_t[config.resolutionX * config.resolutionY];
+	iteration_green = new uint32_t[config.resolutionX * config.resolutionY];
+	iteration_blue = new uint32_t[config.resolutionX * config.resolutionY];
 }
 
 F_Buddhabrot::~F_Buddhabrot()
 {
-	delete iteration_red;
-	delete iteration_green;
-	delete iteration_blue;
-	delete s;
+	delete[] iteration_red;
+	delete[] iteration_green;
+	delete[] iteration_blue;
+	delete[] s;
+	printf("F_Buddhabrot Deleted\n");
 }
 
 void F_Buddhabrot::fractal_render(int output)
@@ -89,7 +91,7 @@ void F_Buddhabrot::fractal_render(int output)
 	
 	for (int color = 0; color < 3; ++color)
 	{
-		unsigned int sample_size = 0;
+		uint64_t sample_size = 0;
 		if (color == 0)
 		{
 			sample_size = sample_size_red;
@@ -106,9 +108,9 @@ void F_Buddhabrot::fractal_render(int output)
 		std::vector<std::thread> fractalT(config.threadMax);
 		for (int thread = 0; thread < config.threadMax; ++thread)
 		{
-			//fractalT[thread] = std::thread(&F_Buddhabrot::c_fractal_64, this, color, sample_size / config.threadMax * thread, sample_size / config.threadMax * (thread + 1), 0, 0, config.resolutionX, config.resolutionY, thread, 0);
-			fractalT[thread] = std::thread(&F_Buddhabrot::avx_fractal_32, this, color, sample_size / config.threadMax * thread, sample_size / config.threadMax * (thread + 1), 0, 0, config.resolutionX, config.resolutionY, thread, 0);
-			printf("Samples [%d, %d] on Thread %d\n", sample_size / config.threadMax * thread, sample_size / config.threadMax * (thread + 1), color);
+			//fractalT[thread] = std::thread(&F_Buddhabrot::c_fractal_64, this, color, sample_size / config.threadMax, 0, 0, config.resolutionX, config.resolutionY, thread, 0);
+			fractalT[thread] = std::thread(&F_Buddhabrot::avx_fractal_32, this, color, sample_size / config.threadMax, 0, 0, config.resolutionX, config.resolutionY, thread, 0);
+			printf("Samples [%jd, %jd] on Thread %d\n", sample_size / config.threadMax * thread, sample_size / config.threadMax * (thread + 1), color);
 		}
 
 		for (int thread = 0; thread < config.threadMax; ++thread)
@@ -127,21 +129,13 @@ void F_Buddhabrot::fractal_render(int output)
 	);
 }
 
-void F_Buddhabrot::c_fractal_64(int color, int n_init, int n_fin, int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
+void F_Buddhabrot::c_fractal_64(int color, uint64_t n_max, int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
-	double zr, zrzr;
-	double zi, zizi;
-	double zr_prev;
 
-	double xWindow = config.xmax - config.xmin;
-	double yWindow = config.ymax - config.ymin;
-
-	int k;
-	double ci, cr, q, zMagSqr;
-	int iteration_max = 0;
-	int iteration_min = 0;
-	unsigned int *data = NULL;
+	uint64_t iteration_max = 0;
+	uint64_t iteration_min = 0;
+	uint32_t *data = NULL;
 
 	if (color == 0)
 	{
@@ -168,17 +162,23 @@ void F_Buddhabrot::c_fractal_64(int color, int n_init, int n_fin, int i_init, in
 
 	double scalecr = (double)(config.xmax - config.xmin) / (UINTMAX_MAX);
 	double scaleci = (double)(config.ymax - config.ymin) / (UINTMAX_MAX);
-	double cici;
+	double xWindow = config.xmax - config.xmin;
+	double yWindow = config.ymax - config.ymin;
+	uint64_t k;
+	double ci, cr, cici, q;
+	double zr, zrzr;
+	double zi, zizi;
+	double zr_prev;
 
-	for (unsigned int n = n_init; n < n_fin; ++n)
+	for (uint64_t n = 0; n < n_max; ++n)
 	{
-		double cr = config.xmin + xorshift128plus(threadID) * scalecr;
+		cr = config.xmin + xorshift128plus(threadID) * scalecr;
 
-		double ci = config.ymin + xorshift128plus(threadID) * scaleci;
+		ci = config.ymin + xorshift128plus(threadID) * scaleci;
 
 		// Bulb checking
 		cici = ci * ci;
-		double q = (cr - 0.25)*(cr - 0.25) + cici;
+		q = (cr - 0.25)*(cr - 0.25) + cici;
 		if (q*(q + cr - 0.25) - 0.25*cici < 0)
 		{
 			continue;
@@ -250,12 +250,12 @@ void F_Buddhabrot::c_fractal_64(int color, int n_init, int n_fin, int i_init, in
 	);
 }
 
-void F_Buddhabrot::avx_fractal_32(int color, int n_init, int n_fin, int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
+void F_Buddhabrot::avx_fractal_32(int color, uint64_t n_max, int i_init, int j_init, int i_fin, int j_fin, int threadID, int maxThreads)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
-	int iteration_max = 0;
-	int iteration_min = 0;
-	unsigned int *data = NULL;
+	uint64_t iteration_max = 0;
+	uint64_t iteration_min = 0;
+	uint32_t *data = NULL;
 
 	if (color == 0)
 	{
@@ -297,7 +297,7 @@ void F_Buddhabrot::avx_fractal_32(int color, int n_init, int n_fin, int i_init, 
 	__m256 ymm_maxIter = _mm256_set1_ps((float)(iteration_max));
 	uint32_t temp[8];
 
-	for (uint32_t n = n_init; n < n_fin; n += 8)
+	for (uint64_t n = 0; n < n_max; n += 8)
 	{
 
 		// Choose random points
@@ -354,7 +354,7 @@ void F_Buddhabrot::avx_fractal_32(int color, int n_init, int n_fin, int i_init, 
 
 		// Test Points
 
-		uint32_t iter = 0;	// Counter for highest iteration
+		uint64_t iter = 0;	// Counter for highest iteration
 		int test = 0; // bits [7:0] used in comparison
 
 
@@ -469,12 +469,11 @@ void F_Buddhabrot::avx_fractal_32(int color, int n_init, int n_fin, int i_init, 
 	);
 }
 
-
 void F_Buddhabrot::write_buffer()
 {
 	auto begin = std::chrono::high_resolution_clock::now();
 
-	uint32_t rx = 0, ry = 0, gx = 0, gy = 0, bx = 0, by = 0;
+	uint64_t rx = 0, ry = 0, gx = 0, gy = 0, bx = 0, by = 0;
 
 	for (int y = 0; y < config.resolutionY; ++y)
 	{
@@ -505,7 +504,7 @@ void F_Buddhabrot::write_buffer()
 	printf("Highest Escape E(b): %d at %d, %d\n", highest_escape_blue, bx, by);
 
 
-	std::vector<std::thread> writeT(config.threadMax);
+	//std::vector<std::thread> writeT(config.threadMax);
 
 	/*for (int sub = 0; sub < config.threadMax; ++sub)
 	{
@@ -528,21 +527,21 @@ void F_Buddhabrot::write_buffer()
 	}*/
 
 	// each array is increased by 1 due to direct indexing, otherwise highest will index out of bounds
-	uint32_t *rcount = new uint32_t[highest_escape_red + 1];
-	uint32_t *gcount = new uint32_t[highest_escape_green + 1];
-	uint32_t *bcount = new uint32_t[highest_escape_blue + 1];
+	uint64_t *rcount = new uint64_t[highest_escape_red + 1];
+	uint64_t *gcount = new uint64_t[highest_escape_green + 1];
+	uint64_t *bcount = new uint64_t[highest_escape_blue + 1];
 
-	for (int i = 0; i < highest_escape_red + 1; i++)
+	for (uint64_t i = 0; i < highest_escape_red + 1; i++)
 	{
 		rcount[i] = 0;
 	}
 
-	for (int i = 0; i < highest_escape_green + 1; i++)
+	for (uint64_t i = 0; i < highest_escape_green + 1; i++)
 	{
 		gcount[i] = 0;
 	}
 
-	for (int i = 0; i < highest_escape_blue + 1; i++)
+	for (uint64_t i = 0; i < highest_escape_blue + 1; i++)
 	{
 		bcount[i] = 0;
 	}
@@ -562,17 +561,17 @@ void F_Buddhabrot::write_buffer()
 	}
 
 	// cumulative
-	for (int i = 0; i < highest_escape_red + 1; i++)
+	for (uint64_t i = 1; i < highest_escape_red + 1; ++i)
 	{
 		rcount[i] = rcount[i] + rcount[i - 1];
 	}
 
-	for (int i = 0; i < highest_escape_green + 1; i++)
+	for (uint64_t i = 1; i < highest_escape_green + 1; ++i)
 	{
 		gcount[i] = gcount[i] + gcount[i - 1];
 	}
 
-	for (int i = 0; i < highest_escape_blue + 1; i++)
+	for (uint64_t i = 1; i < highest_escape_blue + 1; ++i)
 	{
 		bcount[i] = bcount[i] + bcount[i - 1];
 	}
@@ -586,17 +585,17 @@ void F_Buddhabrot::write_buffer()
 			//calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = (int)(((double)(gcount[calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1]] - gcount[0]) / divisor) * (255 - 2) + 1);
 			//calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = (int)(((double)(bcount[calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2]] - bcount[0]) / divisor) * (255 - 2) + 1);
 		
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 0] = (int)(((double)(rcount[iteration_red[(y*config.resolutionX + x)]] - rcount[0]) / divisor) * (255 - 2) + 1);
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = (int)(((double)(gcount[iteration_green[(y*config.resolutionX + x)]] - gcount[0]) / divisor) * (255 - 2) + 1);
-			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = (int)(((double)(bcount[iteration_blue[(y*config.resolutionX + x)]] - bcount[0]) / divisor) * (255 - 2) + 1);
+			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 0] = (unsigned char)(((rcount[iteration_red[(y*config.resolutionX + x)]] - rcount[0]) / divisor) * (255 - 2) + 1);
+			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 1] = (unsigned char)(((gcount[iteration_green[(y*config.resolutionX + x)]] - gcount[0]) / divisor) * (255 - 2) + 1);
+			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 2] = (unsigned char)(((bcount[iteration_blue[(y*config.resolutionX + x)]] - bcount[0]) / divisor) * (255 - 2) + 1);
 			calculation.screenBufferCPU[4 * (y*config.resolutionX + x) + 3] = 255;
 
 		}
 	}
 
-	delete rcount;
-	delete gcount;
-	delete bcount;
+	delete[] rcount;
+	delete[] gcount;
+	delete[] bcount;
 
 	auto end = std::chrono::high_resolution_clock::now();
 	auto elasped = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();

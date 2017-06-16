@@ -5,9 +5,10 @@ struct Calculation_Data {
 	double *escapeBufferSuperSampling;
 	double *magnitude;
 	bool *updatePixel;
+	bool lock;
 
 	bool screenStill;
 	bool screenOptimization;
 	bool periodOptimization;
-	int prevMaxIter;
+	uint32_t prevMaxIter;
 };

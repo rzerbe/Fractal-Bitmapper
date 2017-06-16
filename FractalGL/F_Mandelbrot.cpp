@@ -30,7 +30,7 @@ F_Mandelbrot::F_Mandelbrot(Calculation_Data &calc, Configuration &conf)
 
 F_Mandelbrot::~F_Mandelbrot()
 {
-	
+	printf("F_Mandelbrot Deleted.\n");
 }
 
 void F_Mandelbrot::fractal_render(int output)
